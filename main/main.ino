@@ -1,9 +1,14 @@
 #include "MeMCore.h"
 #include "Wire.h"
 
-// Not started:
-// IR Side Sensors
+// Done:
+// general movement - to recalibrate
+// IR side sensors (?) -not tested
+// colour sensor (?) -not tested
 
+// Not done:
+// sound sensors
+// finish
 
 // to be determined by experiment:
 // WAYPTDELAY - delay before decoding waypoint after detection
@@ -11,42 +16,92 @@
 // TIMEDELAY - delay for how often position is checked, should be a factor of TIMEGRID
 // TIMETURN - time needed for mBot to turn 90 deg
 // TIMEGRID - time needed to travel 1 grid
+// FRNTTHRESHOLD - distance (cm) in front of mBot there is a wall for waypoint
+// SIDETHRESHOLD - voltage (V) corresponding to closeness to side walls
+// COLOURTHRESHOLD - max deviation from calibrated colour values
 
 #define WAYPTDELAY 500
 #define SNDTHRESHOLD 500
 #define TIMEDELAY 500 
 #define TIMETURN 1100
 #define TIMEGRID 2000 
+#define FRNTTHRESHOLD 5
+#define SIDETHRESHOLD 0.5
 
-// Motor setup (movement)
+// Infrared side sensor pins
+#define IRL A1 //left
+#define IRR A2 //right
+
+// Sound sensor pins
+#define SNDLOW A3 //low
+#define SNDHI A0 //high
+
+/* COLOR SENSOR CONSTANTS*/
+// Define time delay before the next RGB colour turns ON to allow LDR to stabilize
+#define RGBWait 200 //in milliseconds 
+
+// Define time delay before taking another LDR reading
+#define LDRWait 10 //in milliseconds 
+
+#define LDR A6   //LDR sensor pin at A6
+//#define LED 13  //Check Indicator to signal Calibration Completed
+
+#define MAXLED 255 // max value of LED
+
+#define COLOURTHRESHOLD 20 //max deviation from calibrated colour values
+
+
+/*MCORE OBJECTS*/
+
+// Motor setup (movement) 
 MeDCMotor leftWheel(M1);
 MeDCMotor rightWheel(M2);
 // Line Follower (Black Strip) setup
-MeLineFollower lineFinder(PORT_3); /* Line Finder module can only be connected to PORT_3, PORT_4, PORT_5, PORT_6 of base shield. */
-// Color Sensor setup
-MeColorSensor colorsensor(PORT_1);
+MeLineFollower lineFinder(PORT_2); 
 // Ultrasonic Sensor setup
-MeUltrasonicSensor ultraSensor(PORT_7); /* Ultrasonic module can ONLY be connected to port 3, 4, 6, 7, 8 of base shield. */
+MeUltrasonicSensor ultraSensor(PORT_1); 
+// Color Sensor setup - confirmed
+MeRGBLed led(13); // pin 13 is the RGB LED 
 // Sound Sensor setup
-MeSoundSensor highSound(PORT_6);
-MeSoundSensor lowSound(PORT_5);
+//MeSoundSensor highSound(PORT_6);
+//MeSoundSensor lowSound(PORT_5);
 
+/* VARIABLES */
 
 // Used in Motor
 uint8_t motorSpeed = 100;
 // no. of TIMEDELAY cycles to travel 1 grid
 int delayGrid = TIMEGRID / TIMEDELAY;
 
+// Used in IR Sensor
+// value comes from IR sensor in voltage
+float rightDist = 0; 
+float leftDist = 0;
+
 // Used in Line Follower
-int lineState;
+int lineState; // whether its sensors detect line below in 1 or both of them
 
-// Used in Color Sensor
-uint8_t colorresult;
-uint16_t redvalue = 0, greenvalue = 0, bluevalue = 0, colorvalue = 0;
-uint8_t grayscale = 0;
-uint16_t colorvalues[5];
-long systime = 0, colorcode = 0;
 
+/* COLOUR VARIABLES*/
+
+//placeholders for colour detected
+int red = 0;
+int green = 0;
+int blue = 0;
+
+//floats to hold colour arrays
+float colourArray[] = {0,0,0};
+float whiteArray[] = {0,0,0};
+float blackArray[] = {0,0,0};
+float greyDiff[] = {0,0,0};
+float allColourArray[5][3] = {0,0,0}; // red,green,yellow,purple,lightblue
+
+char colourStr[3][5] = {"R = ", "G = ", "B = "};
+
+//resulting colour at waypoints (calibration done before start)
+int colourRes = 0;
+
+/*ULTRASONIC SENSOR VARIABLES*/
 // Used in Ultrasonic Sensor
 double frontDistance;
 
@@ -60,44 +115,58 @@ int waypoint; // true if at waypoint, false if not
 
 void setup() {
 	// put your setup code here, to run once:
+	pinMode(IRL, INPUT);
+	pinMode(IRR, INPUT);
+	pinMode(SNDLOW, INPUT);
+	pinMode(SNDHI, INPUT);
 	Serial.begin(9600);
-	colorsensor.SensorInit();
+
+	//colour calibration first
+	setBalance();
+	for (int i=0;i<5;i++) {
+		setColours(i);
+	}
 }
 
 void loop() {
 	// put your main code here, to run repeatedly:
 	frontDistance = ultraSensor.distanceCm(); // Distance to wall in front
 	lineState = lineFinder.readSensors(); // Detection black strip below
+	
+	// Side wall "distances" (in V)
+	rightDist = analogRead(IRR);
+	leftDist = analogRead(IRL);
 
-	// To add: IR side sensors - check distance and readjust accordingly
 
-	waypoint = checkWaypoint(lineState); // Presence of black strip
+	waypoint = checkWaypoint(frontDistance, lineState); // Presence of black strip
 
 	// If waypoint detected, decode it
 	if (waypoint) {
 		delay(WAYPTDELAY); // Delay before start
-		getColours(colorvalues); // Get colours above
-		colorresult = colorvalues[0]; // Get preset colour result
-		highStrength = highSound.strength(); // Get high f sound strength
-		lowStrength = lowSound.strength(); // Get low f sound strength
+		colourRes = getColour(); // Get preset colour result
+		//highStrength = highSound.strength(); // Get high f sound strength
+		//lowStrength = lowSound.strength(); // Get low f sound strength
 
 		// If color waypoint
-		if (colorvalues[0] != BLACK)
-			colorWaypoint(colorresult);
+		if (colourRes >= 0)
+			colorWaypoint(colourRes);
 		// If sound waypoint
-		else if (highStrength > SNDTHRESHOLD || lowStrength > SNDTHRESHOLD)
-			soundWaypoint(highStrength, lowStrength);
+		//else if (highStrength > SNDTHRESHOLD || lowStrength > SNDTHRESHOLD)
+			//soundWaypoint(highStrength, lowStrength);
 		// If finished
 		else
 			finish();
 	}
+	else if (tooClose(rightDist, leftDist)) {
+		reAdjust(rightDist, leftDist);
+	}
 	else {
-		moveForward();
+		forward();
 	}
 
 }
 
-// Functions for movement
+/*MOVEMENT FUNCTIONS*/
 // forward
 // forwardGrid
 // turnRight
@@ -105,7 +174,9 @@ void loop() {
 // doubleRight
 // doubleLeft
 // uTurn
-// readjust
+// reAdjust
+// reAdjustRight
+// reAdjustLeft
 void forward() {
 	leftWheel.run(motorSpeed);
 	rightWheel.run(-motorSpeed);
@@ -153,81 +224,175 @@ void uTurn() {
 	turnRight();
 }
 
-void readjust() {}
-
-// Function retrieves colour from sensor
-void colorPrint() {
-	colorresult = colorsensor.Returnresult();
-	redvalue = colorsensor.ReturnRedData();
-	greenvalue = colorsensor.ReturnGreenData();
-	bluevalue = colorsensor.ReturnBlueData();
-	colorvalue = colorsensor.ReturnColorData();
-	colorcode = colorsensor.ReturnColorCode();//RGB24code
-	grayscale = colorsensor.ReturnGrayscale();
-
-	Serial.print("R:");
-	Serial.print(redvalue);
-	Serial.print("\t");
-	Serial.print("G:");
-	Serial.print(greenvalue);
-	Serial.print("\t");
-	Serial.print("B:");
-	Serial.print(bluevalue);
-	Serial.print("\t");
-	Serial.print("C:");
-	Serial.print(colorvalue);
-	Serial.print("\t");
-	Serial.print("color:");
-	switch (colorresult)
-	{
-	case BLACK:
-		Serial.print("BLACK");
-		break;
-	case BLUE:
-		Serial.print("BLUE");
-		break;
-	case YELLOW:
-		Serial.print("YELLOW");
-		break;
-	case GREEN:
-		Serial.print("GREEN");
-		break;
-	case RED:
-		Serial.print("RED");
-		break;
-	case WHITE:
-		Serial.print("WHITE");
-		break;
-	default:
-		break;
-	}
-	Serial.print("\t");
-	Serial.print("code:");
-	Serial.print(colorcode, HEX);
-	Serial.print("\t");
-	Serial.print("grayscale:");
-	Serial.println(grayscale);
+void reAdjust(float rightDist, float leftDist) {
+	if (rightDist < SIDETHRESHOLD) reAdjustLeft();
+	else reAdjustRight();
 }
+
+void reAdjustRight() {
+	leftWheel.run(motorSpeed+50);
+	rightWheel.run(-motorSpeed);
+	delay(TIMEDELAY);
+}
+
+void reAdjustLeft() {
+	leftWheel.run(motorSpeed);
+	rightWheel.run(-motorSpeed-50);
+	delay(TIMEDELAY);
+}
+
+
+// bool to check if too close to walls
+int tooClose(float rightDist, float leftDist) {
+	return rightDist < SIDETHRESHOLD || leftDist < SIDETHRESHOLD;
+}
+
+
+/* COLOUR FUNCTIONS */
+// setBalance - calibrate between white and black
+// setColours - set values of default colours into allColoursArray
+// getColourValues - gets colour values of a given sample
+// getColour - get colour from the default colours
+// getAvgReading - gets direct reading from LDR
+
+void setBalance() {
+	//set white balance
+	Serial.println("Put White Sample For Calibration ...");
+	delay(5000);           //delay for five seconds for getting sample ready
+	//digitalWrite(LED,LOW); //Check Indicator OFF during Calibration
+	//scan the white sample.
+	//go through one colour at a time, set the maximum reading for each colour -- red, green and blue to the white array
+	for(int i = 0;i<=2;i++){
+		int r = 0, g = 0, b = 0;
+		switch (i) {
+		case 0: r = 1; break;
+		case 1: g = 1; break;
+		case 2: b = 1; break;
+		}
+		led.setColorAt(0, r * MAXLED, g * MAXLED, b * MAXLED);
+		led.show();
+		delay(RGBWait);
+		whiteArray[i] = getAvgReading(5);
+		delay(RGBWait);
+	}
+	//done scanning white, time for the black sample.
+	//set black balance
+	Serial.println("Put Black Sample For Calibration ...");
+	delay(5000);     //delay for five seconds for getting sample ready 
+	//go through one colour at a time, set the minimum reading for red, green and blue to the black array
+	for(int i = 0;i<=2;i++){
+		int r=0,g=0,b=0;
+		switch (i){
+		case 0: r=1; break;
+		case 1: g=1; break;
+		case 2: b=1; break;
+		}
+		led.setColorAt(0, r*MAXLED,g*MAXLED,b*MAXLED);
+		led.show();
+		delay(RGBWait);
+		blackArray[i] = getAvgReading(5);
+		delay(RGBWait);
+		//the differnce between the maximum and the minimum gives the range
+		greyDiff[i] = whiteArray[i] - blackArray[i];
+	}
+
+	//delay another 5 seconds for getting ready colour objects
+	Serial.println("Colour Sensor Is Ready.");
+	delay(5000);
+} 
+
+
+void setColours(int colour) {
+	switch (colour) {
+	case 0: Serial.println("Put Red Sample For Calibration ..."); break;
+	case 1: Serial.println("Put Green Sample For Calibration ..."); break;
+	case 2: Serial.println("Put Yellow Sample For Calibration ..."); break;
+	case 3: Serial.println("Put Purple Sample For Calibration ..."); break;
+	case 4: Serial.println("Put Light Blue Sample For Calibration ..."); break;
+	}
+	for (int c = 0;c <= 2;c++) {
+		getColourValues(c);
+		allColourArray[colour][c] = colourArray[c];
+		delay(RGBWait);
+		Serial.println(int(colourArray[c])); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
+	}
+}
+
+int getColour() {
+	for (int i = 0;i < 5;i++) {
+		for (int j = 0;i < 3;i++) {
+			getColourValues(j);
+			if (abs(allColourArray[i][j] - colourArray[j]) > COLOURTHRESHOLD)
+				break;
+			else if (j == 2)
+				return i;
+		}
+	}
+	return -1;
+}
+
+int getColourValues(int rgb) {
+	Serial.print(colourStr[rgb]);
+	int r=0,g=0,b=0;
+	switch (rgb){
+	case 0: r=1; break;
+	case 1: g=1; break;
+	case 2: b=1; break;
+	}
+	led.setColorAt(0, r*MAXLED,g*MAXLED,b*MAXLED);
+	led.show();//turn ON the LED, red, green or blue, one colour at a time.
+	delay(RGBWait);
+	//get the average of 5 consecutive readings for the current colour and return an average 
+	colourArray[rgb] = getAvgReading(5);
+	//the average reading returned minus the lowest value divided by the maximum possible range, multiplied by 255 will give a value between 0-255, representing the value for the current reflectivity (i.e. the colour LDR is exposed to)
+	colourArray[rgb] = (colourArray[rgb] - blackArray[rgb])/(greyDiff[rgb])*255;
+}
+
+
+
+int getAvgReading(int times){      
+	//find the average reading for the requested number of times of scanning LDR
+	int reading;
+	int total =0;
+	//take the reading as many times as requested and add them up
+	for(int i = 0;i < times;i++){
+		reading = analogRead(LDR);
+		total = reading + total;
+		delay(LDRWait);
+	}
+	//calculate the average and return it
+	return total/times;
+}
+
 
 
 // Function for waypoint checking using Line Sensor
 // returns true if black strip
 // returns false if no black strip
-int checkWaypoint(int lineState) {
-	return lineState == S1_IN_S2_IN;
+int checkWaypoint(int frontDistance, int lineState) {
+	return frontDistance < FRNTTHRESHOLD && lineState == S1_IN_S2_IN;
 }
 
-// Function for getting colours from Colour Sensor
-void getColours(uint16_t colorvalues[]) {
-	colorvalues[0] = colorsensor.Returnresult();
-	colorvalues[1] = colorsensor.ReturnRedData();
-	colorvalues[2] = colorsensor.ReturnGreenData();
-	colorvalues[3] = colorsensor.ReturnBlueData();
-	colorvalues[4] = colorsensor.ReturnColorData();
-}
+/* WAYPOINT FUNCTIONS*/
 
-void colorWaypoint(uint8_t colorresult) {
-	// To do
+void colorWaypoint(uint8_t colorRes) {
+	switch(colorRes) {
+    case 0: // Red
+      turnLeft();
+      break;
+    case 1: // Green
+      turnRight();
+      break;
+    case 2: // Yellow
+      uTurn();
+      break;
+    case 3: // Purple
+      doubleLeft();
+      break;
+    case 4: // LightBlue
+      doubleRight();
+      break;
+	}
 }
 
 void soundWaypoint(uint8_t highStrength, uint8_t lowStrength) {
@@ -236,9 +401,4 @@ void soundWaypoint(uint8_t highStrength, uint8_t lowStrength) {
 
 void finish() {
 	// To do
-}
-
-void moveForward() {
-	// To do
-	// uses side IR sensors
 }
