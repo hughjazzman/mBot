@@ -1,28 +1,17 @@
-
-#include <MeDCMotor.h>
-
-#include <MeLineFollower.h>
-
-#include <MeMCore.h>
-
-#include <MeRGBLed.h>
-
-#include <MeUltrasonicSensor.h>
-
-
 #include "MeMCore.h"
 #include "Wire.h"
 
 // Done:
-// general movement - values calibrated
+// general movement - values calibrated (Wira)
+// celebratory tune - not tested (Shuyi)
 
 // Half Done:
-// colour sensor (?) - to recalibrate
+// colour sensor (?) - to be calibrated (Wira)
 
 // Not done:
 // IR side sensors (?) -not tested (Walter)
-// sound sensors
-// finish
+// sound sensors - (ZiHao)
+
 
 
 // determined by experiment:
@@ -33,10 +22,11 @@
 
 // to be determined by experiment:
 // REDARR,GREARR,YELARR,PURARR,BLUARR - RGB Values of each colour stored in arrays
-// SNDTHRESHOLD - value threshold for a sound
+// SNDTHRESHOLD - voltage (V) value threshold for a sound
 // FRNTTHRESHOLD - distance (cm) in front of mBot there is a wall for waypoint
 // SIDETHRESHOLD - voltage (V) corresponding to closeness to side walls
 // COLOURTHRESHOLD - max deviation from calibrated colour values
+
 
 #define WAYPTDELAY 100
 #define SNDTHRESHOLD 500
@@ -69,12 +59,103 @@
 
 // Calibrated values for each colour used in colour waypoint test
 // Values retrieved from colourcal.ino file
-#define REDARR {,,}
-#define GREARR {,,}
-#define YELARR {,,}
-#define PURARR {,,}
-#define BLUARR {,,}
+#define REDARR {0,0,0}
+#define GREARR {0,0,0}
+#define YELARR {0,0,0}
+#define PURARR {0,0,0}
+#define BLUARR {0,0,0}
 
+/* NOTES FOR CELEBRATORY TUNE */
+//notes
+#define NOTE_B0  31
+#define NOTE_C1  33
+#define NOTE_CS1 35
+#define NOTE_D1  37
+#define NOTE_DS1 39
+#define NOTE_E1  41
+#define NOTE_F1  44
+#define NOTE_FS1 46
+#define NOTE_G1  49
+#define NOTE_GS1 52
+#define NOTE_A1  55
+#define NOTE_AS1 58
+#define NOTE_B1  62
+#define NOTE_C2  65
+#define NOTE_CS2 69
+#define NOTE_D2  73
+#define NOTE_DS2 78
+#define NOTE_E2  82
+#define NOTE_F2  87
+#define NOTE_FS2 93
+#define NOTE_G2  98
+#define NOTE_GS2 104
+#define NOTE_A2  110
+#define NOTE_AS2 117
+#define NOTE_B2  123
+#define NOTE_C3  131
+#define NOTE_CS3 139
+#define NOTE_D3  147
+#define NOTE_DS3 156
+#define NOTE_E3  165
+#define NOTE_F3  175
+#define NOTE_FS3 185
+#define NOTE_G3  196
+#define NOTE_GS3 208
+#define NOTE_A3  220
+#define NOTE_AS3 233
+#define NOTE_B3  247
+#define NOTE_C4  262
+#define NOTE_CS4 277
+#define NOTE_D4  294
+#define NOTE_DS4 311
+#define NOTE_E4  330
+#define NOTE_F4  349
+#define NOTE_FS4 370
+#define NOTE_G4  392
+#define NOTE_GS4 415
+#define NOTE_A4  440
+#define NOTE_AS4 466
+#define NOTE_B4  494
+#define NOTE_C5  523
+#define NOTE_CS5 554
+#define NOTE_D5  587
+#define NOTE_DS5 622
+#define NOTE_E5  659
+#define NOTE_F5  698
+#define NOTE_FS5 740
+#define NOTE_G5  784
+#define NOTE_GS5 831
+#define NOTE_A5  880
+#define NOTE_AS5 932
+#define NOTE_B5  988
+#define NOTE_C6  1047
+#define NOTE_CS6 1109
+#define NOTE_D6  1175
+#define NOTE_DS6 1245
+#define NOTE_E6  1319
+#define NOTE_F6  1397
+#define NOTE_FS6 1480
+#define NOTE_G6  1568
+#define NOTE_GS6 1661
+#define NOTE_A6  1760
+#define NOTE_AS6 1865
+#define NOTE_B6  1976
+#define NOTE_C7  2093
+#define NOTE_CS7 2217
+#define NOTE_D7  2349
+#define NOTE_DS7 2489
+#define NOTE_E7  2637
+#define NOTE_F7  2794
+#define NOTE_FS7 2960
+#define NOTE_G7  3136
+#define NOTE_GS7 3322
+#define NOTE_A7  3520
+#define NOTE_AS7 3729
+#define NOTE_B7  3951
+#define NOTE_C8  4186
+#define NOTE_CS8 4435
+#define NOTE_D8  4699
+#define NOTE_DS8 4978
 
 /*MCORE OBJECTS*/
 
@@ -87,9 +168,9 @@ MeLineFollower lineFinder(PORT_2);
 MeUltrasonicSensor ultraSensor(PORT_1);
 // Color Sensor setup - confirmed
 MeRGBLed led(7); // pin 7 is the RGB LED (WHY??)
-// Sound Sensor setup
-//MeSoundSensor highSound(PORT_6);
-//MeSoundSensor lowSound(PORT_5);
+// Sound Sensor setup done from pins in setup()
+// Speaker for celebratory tune
+MeBuzzer buzzer;
 
 /* VARIABLES */
 
@@ -205,8 +286,8 @@ void loop() {
       stopMove();
   	  delay(WAYPTDELAY); // Delay before start
   	  colourRes = getColour(); // Get preset colour result
-  	  //highStrength = highSound.strength(); // Get high f sound strength
-  	  //lowStrength = lowSound.strength(); // Get low f sound strength
+  	  highStrength = analogRead(SNDHI); // Get high f sound strength
+  	  lowStrength = analogRead(SNDLOW); // Get low f sound strength
 
   	  // If color waypoint
   	  if (colourRes >= 0)
@@ -216,7 +297,7 @@ void loop() {
   		  //soundWaypoint(highStrength, lowStrength);
   	  // If finished
   	  else
-  		  finish();
+  		  celebratory_music();
     }
 
     // If no waypoint
@@ -460,7 +541,7 @@ int checkWaypoint(int lineState) {
   // S1_OUT_S2_IN
   // S1_OUT_S2_OUT
   // To decide which to use
-  return frontDistance < FRNTTHRESHOLD && lineState == S1_IN_S2_IN;
+  return lineState == S1_IN_S2_IN;
 }
 
 /* WAYPOINT FUNCTIONS*/
@@ -486,9 +567,84 @@ void colourWaypoint(uint8_t colourRes) {
 }
 
 void soundWaypoint(uint8_t highStrength, uint8_t lowStrength) {
-  // To do
+  if (highStrength > SNDTHRESHOLD)
+    turnRight();
+  else if (lowStrength > SNDTHRESHOLD)
+    turnLeft();
 }
 
-void finish() {
-  // To do
+void celebratory_music(){
+ int melody[] = {
+    NOTE_E7, NOTE_E7, 0, NOTE_E7, 
+    0, NOTE_C7, NOTE_E7, 0,
+    NOTE_G7, 0, 0,  0,
+    NOTE_G6, 0, 0, 0, 
+
+    NOTE_C7, 0, 0, NOTE_G6, 
+    0, 0, NOTE_E6, 0, 
+    0, NOTE_A6, 0, NOTE_B6, 
+    0, NOTE_AS6, NOTE_A6, 0, 
+
+    NOTE_G6, NOTE_E7, NOTE_G7, 
+    NOTE_A7, 0, NOTE_F7, NOTE_G7, 
+    0, NOTE_E7, 0,NOTE_C7, 
+    NOTE_D7, NOTE_B6, 0, 0,
+
+    NOTE_C7, 0, 0, NOTE_G6, 
+    0, 0, NOTE_E6, 0, 
+    0, NOTE_A6, 0, NOTE_B6, 
+    0, NOTE_AS6, NOTE_A6, 0, 
+
+    NOTE_G6, NOTE_E7, NOTE_G7, 
+    NOTE_A7, 0, NOTE_F7, NOTE_G7, 
+    0, NOTE_E7, 0,NOTE_C7, 
+    NOTE_D7, NOTE_B6, 0, 0
+ };
+ 
+ int noteDurations[] = {
+    12, 12, 12, 12, 
+    12, 12, 12, 12,
+    12, 12, 12, 12,
+    12, 12, 12, 12, 
+
+    12, 12, 12, 12,
+    12, 12, 12, 12, 
+    12, 12, 12, 12, 
+    12, 12, 12, 12, 
+
+    9, 9, 9,
+    12, 12, 12, 12,
+    12, 12, 12, 12,
+    12, 12, 12, 12,
+  
+    12, 12, 12, 12,
+    12, 12, 12, 12,
+    12, 12, 12, 12,
+    12, 12, 12, 12,
+
+    9, 9, 9,
+    12, 12, 12, 12,
+    12, 12, 12, 12,
+    12, 12, 12, 12,
+ };
+
+ // loop until all values in the melody array have been used
+ // ie. when i reaches size of melody array
+ int size = sizeof(melody)/sizeof(int);
+ for (int i = 0; i < size; i++) {
+    
+    // to calculate the note duration, take one second
+    // divided by the note type.
+    // e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc. (Assuming 1 beat per sec)
+    int noteDuration = 1000/noteDurations[i];
+    buzzer.tone(8, melody[i], noteDuration);
+    
+    // to distinguish the notes, set a minimum time between them.
+    // the note's duration + 30% seems to work well:
+    int pauseBetweenNotes = noteDuration * 1.30;
+    delay(pauseBetweenNotes);
+    
+    // stop the tone playing:
+    buzzer.noTone(8);
+ }
 }
