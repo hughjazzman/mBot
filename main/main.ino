@@ -5,9 +5,10 @@
 // general movement - values calibrated (Wira)
 // celebratory tune - tested, working (Shuyi)
 // colour sensor -  values calibrated (Wira)
+// IR side sensors (?) - calibrating (Walter)
 
 // Half Done:
-// IR side sensors - calibrating (Walter)
+
 
 // Not done:
 // sound sensors - (ZiHao) - ggwp
@@ -233,8 +234,7 @@ void setup() {
   //pinMode(13, OUTPUT); // RGBLed
   Serial.begin(9600);
 
-  //colour calibration first
-  // to do: save values in array
+  //colour calibration first (black and white)
   setBalance();
 }
 
@@ -295,41 +295,36 @@ void loop() {
   	highStrength = soundVal(SNDHI); // Get high f sound strength
   	lowStrength = soundVal(SNDLOW); // Get low f sound strength
 
-  // If color waypoint
-  if (colourRes > 0)
-  	colourWaypoint(colourRes);
-  // If sound waypoint
-  //else if (highStrength > SNDTHRESHOLD || lowStrength > SNDTHRESHOLD)
-  	//soundWaypoint(highStrength, lowStrength);
-  // If finished
-  else
-    celebratory_music();
+    // Waypoint decoding
+    // If color waypoint
+    if (colourRes > 0)
+  	  colourWaypoint(colourRes);
+    // If sound waypoint
+    //else if (highStrength > SNDTHRESHOLD || lowStrength > SNDTHRESHOLD)
+  	  //soundWaypoint(highStrength, lowStrength);
+    // If finished
+    else
+      celebratory_music();
   }
 
   // If no waypoint
-    
-<<<<<<< HEAD
-  if (tooClose(rightDist, leftDist)) { // to replace with Walter's
-  	reAdjust(rightDist, leftDist);
-  } else {
-  	forward();
-  }
-=======
-    if (tooClose(rightDist, leftDist)) {
-  	  reAdjust(rightDist, leftDist);
-    }
-    else if (checkFront(frontDistance)){
-      if (rightDist > leftDist){
-        turnRight;
-      }
-      else{
-        turnLeft;
-      }
+  // Failsafe if waypoint not detected and wall in front
+  if (checkFront(frontDistance)){
+    if (rightDist > leftDist){
+      turnRight();
     }
     else {
-  	  forward();
+      turnLeft();
     }
->>>>>>> 6dc22ca06d14b2012aa1de0cee34d10c6883dc3f
+  }
+  // Readjust if too close to right or left wall
+  else if (tooClose(rightDist, leftDist)) {
+  	reAdjust(rightDist, leftDist);
+  } 
+  // Default movement: forward 
+  else {
+  	forward();
+  }
 }
 
 /*MOVEMENT FUNCTIONS*/
@@ -341,11 +336,11 @@ void loop() {
 // doubleRight
 // doubleLeft
 // uTurn
-
-// Below - to be checked with IR sensor (replace with Walter's?)
 // reAdjust
 // reAdjustRight
 // reAdjustLeft
+// tooClose
+// checkFront
 
 void forward() {
   leftWheel.run(-motorSpeed);
@@ -396,7 +391,7 @@ void uTurn() {
   turnRight();
 }
 
-/* to replace with walters below */
+// Readjusting algorithms from wall detection
 void reAdjust(float rightDist, float leftDist) {
   if (rightDist < SIDETHRESHOLD) reAdjustLeft();
   else reAdjustRight();
@@ -414,21 +409,16 @@ void reAdjustLeft() {
   delay(TIMEDELAY);
 }
 
-
 // bool to check if too close to walls
 int tooClose(float rightDist, float leftDist) {
   return rightDist < SIDETHRESHOLD || leftDist < SIDETHRESHOLD;
 }
-<<<<<<< HEAD
-/* to replace with walter's above */
-=======
 
 // Checks if too close to front wall 
 int checkFront(int frontDistance){
     return frontDistance < FRNTTHRESHOLD;
 }
 
->>>>>>> 6dc22ca06d14b2012aa1de0cee34d10c6883dc3f
 
 /* COLOUR FUNCTIONS */
 // setBalance - calibrate between white and black
@@ -504,6 +494,7 @@ int getColour() {
           temp = i;
           return i;
         }
+      }
     }
   }
 }
