@@ -305,6 +305,12 @@ void loop() {
     if (tooClose(rightDist, leftDist)) {
   	  reAdjust(rightDist, leftDist);
     }
+    else if (checkFront(frontDistance)){
+      turnRight; 
+      if (checkFront(frontDistance)){
+        uTurn;
+      }
+    }
     else {
   	  forward();
     }
@@ -395,6 +401,11 @@ void reAdjustLeft() {
 // bool to check if too close to walls
 int tooClose(float rightDist, float leftDist) {
   return rightDist < SIDETHRESHOLD || leftDist < SIDETHRESHOLD;
+}
+
+// Checks if too close to front wall 
+int checkFront(int frontDistance){
+    return frontDistance < FRNTTHRESHOLD;
 }
 
 
