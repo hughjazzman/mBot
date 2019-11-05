@@ -308,11 +308,28 @@ void loop() {
 
   // If no waypoint
     
+<<<<<<< HEAD
   if (tooClose(rightDist, leftDist)) { // to replace with Walter's
   	reAdjust(rightDist, leftDist);
   } else {
   	forward();
   }
+=======
+    if (tooClose(rightDist, leftDist)) {
+  	  reAdjust(rightDist, leftDist);
+    }
+    else if (checkFront(frontDistance)){
+      if (rightDist > leftDist){
+        turnRight;
+      }
+      else{
+        turnLeft;
+      }
+    }
+    else {
+  	  forward();
+    }
+>>>>>>> 6dc22ca06d14b2012aa1de0cee34d10c6883dc3f
 }
 
 /*MOVEMENT FUNCTIONS*/
@@ -402,7 +419,16 @@ void reAdjustLeft() {
 int tooClose(float rightDist, float leftDist) {
   return rightDist < SIDETHRESHOLD || leftDist < SIDETHRESHOLD;
 }
+<<<<<<< HEAD
 /* to replace with walter's above */
+=======
+
+// Checks if too close to front wall 
+int checkFront(int frontDistance){
+    return frontDistance < FRNTTHRESHOLD;
+}
+
+>>>>>>> 6dc22ca06d14b2012aa1de0cee34d10c6883dc3f
 
 /* COLOUR FUNCTIONS */
 // setBalance - calibrate between white and black
