@@ -3,30 +3,29 @@
 
 // Done:
 // general movement - values calibrated (Wira)
-// celebratory tune - not tested (Shuyi)
+// celebratory tune - tested, working (Shuyi)
+// colour sensor -  values calibrated (Wira)
 
 // Half Done:
-// colour sensor (?) - to be calibrated (Wira)
+// IR side sensors - calibrating (Walter)
 
 // Not done:
-// IR side sensors (?) -not tested (Walter)
-// sound sensors - (ZiHao)
+// sound sensors - (ZiHao) - ggwp
 
 
 
 // determined by experiment:
 // WAYPTDELAY - delay before decoding waypoint after detection
-// TIMEDELAY - delay for how often position is checked, should be a factor of TIMEGRID
+// TIMEDELAY - delay for how often position is checked
 // TIMETURN - time needed for mBot to turn 90 deg
 // TIMEGRID - time needed to travel 1 grid
-
-// to be determined by experiment:
 // REDARR,GREARR,YELARR,PURARR,BLUARR - RGB Values of each colour stored in arrays
-// SNDTHRESHOLD - voltage (V) value threshold for a sound
-// FRNTTHRESHOLD - distance (cm) in front of mBot there is a wall for waypoint
-// SIDETHRESHOLD - voltage (V) corresponding to closeness to side walls
 // COLOURTHRESHOLD - max deviation from calibrated colour values
 
+// to be determined by experiment:
+// SNDTHRESHOLD - voltage (V) value threshold for a sound
+// FRNTTHRESHOLD - distance (cm) in front of mBot there is a wall to not crash into
+// SIDETHRESHOLD - voltage (V) corresponding to closeness to side walls
 
 #define WAYPTDELAY 100
 #define SNDTHRESHOLD 500
@@ -55,15 +54,18 @@
 
 #define MAXLED 255 // max value of LED RGB values
 
-#define COLOURTHRESHOLD 10 //max deviation from calibrated colour values
+#define COLOURTHRESHOLD 20 //max deviation from calibrated colour values
 
 // Calibrated values for each colour used in colour waypoint test
-// Values retrieved from colourcal.ino file
-#define REDARR {0,0,0}
-#define GREARR {0,0,0}
-#define YELARR {0,0,0}
-#define PURARR {0,0,0}
-#define BLUARR {0,0,0}
+// Values retrieved from colourcal.ino file after calibration
+// Values placed in finalColVal array to be used in logic below
+#define REDARR {193,45,42}
+#define GREARR {43, 111, 53}
+#define YELARR {266, 175, 102}
+#define PURARR {131, 130, 191}
+#define BLUARR {129, 186, 213}
+#define BLAARR {0,0,0}
+#define NUMCOL 6 // number of colours in finalColVal - black, red, green, yellow, purple, blue
 
 /* NOTES FOR CELEBRATORY TUNE */
 //notes
@@ -166,11 +168,13 @@ MeDCMotor rightWheel(M2);
 MeLineFollower lineFinder(PORT_2);
 // Ultrasonic Sensor setup
 MeUltrasonicSensor ultraSensor(PORT_1);
-// Color Sensor setup - confirmed
+// Color Sensor setup
 MeRGBLed led(7); // pin 7 is the RGB LED (WHY??)
-// Sound Sensor setup done from pins in setup()
 // Speaker for celebratory tune
 MeBuzzer buzzer;
+
+// IR Sensor setup done from pins in setup()
+// Sound Sensor setup done from pins in setup()
 
 /* VARIABLES */
 
@@ -200,8 +204,8 @@ float colourArray[] = {0, 0, 0};
 float whiteArray[] = {0, 0, 0};
 float blackArray[] = {0, 0, 0};
 float greyDiff[] = {0, 0, 0};
-int allColourArray[5][3] = {0, 0, 0}; // red,green,yellow,purple,lightblue
-int finalColVal[5][3] = {REDARR,GREARR,YELARR,PURARR,BLUARR};
+//int allColourArray[5][3] = {0, 0, 0}; // red,green,yellow,purple,lightblue
+int finalColVal[6][3] = {BLAARR, REDARR,GREARR,YELARR,PURARR,BLUARR};
 
 char colourStr[3][5] = {"R = ", "G = ", "B = "};
 
@@ -239,18 +243,19 @@ void loop() {
   /* To test Movement*/
 
   //forward();
-  // turnRight();
-  //  turnLeft();
+  //turnRight();
+  //turnLeft();
   //uTurn();
   //doubleRight();
-  //  doubleLeft();
-  //  forwardGrid();
+  //doubleLeft();
+  //forwardGrid();
 
   
   // put your main code here, to run repeatedly:
   frontDistance = ultraSensor.distanceCm(); // Distance to wall in front
   lineState = lineFinder.readSensors(); // Detection black strip below
-
+  waypoint = checkWaypoint(lineState); // Presence of black strip
+  
   // Side wall "distances" (in V)
   rightDist = analogRead(IRR);
   leftDist = analogRead(IRL);
@@ -259,7 +264,7 @@ void loop() {
   /* To test LineFinder*/
 
   /*
-    waypoint = checkWaypoint(lineState); // Presence of black strip
+    
     if (lineState != S1_OUT_S2_OUT){
       stopMove();
       Serial.println("stop");
@@ -280,34 +285,34 @@ void loop() {
   /* To test sound */
 
 
-    /* Actual logic here */
-    // If waypoint detected, decode it
-    if (waypoint) {
-      stopMove();
-  	  delay(WAYPTDELAY); // Delay before start
-  	  colourRes = getColour(); // Get preset colour result
-  	  highStrength = analogRead(SNDHI); // Get high f sound strength
-  	  lowStrength = analogRead(SNDLOW); // Get low f sound strength
+  /* Actual logic here */
+  // If waypoint detected, decode it
+  if (waypoint) {
+    stopMove();
+  	delay(WAYPTDELAY); // Delay before start
+  	colourRes = getColour(); // Get preset colour result
+    printColour(colourRes);
+  	highStrength = soundVal(SNDHI); // Get high f sound strength
+  	lowStrength = soundVal(SNDLOW); // Get low f sound strength
 
-  	  // If color waypoint
-  	  if (colourRes >= 0)
-  		  colourWaypoint(colourRes);
-  	  // If sound waypoint
-  	  //else if (highStrength > SNDTHRESHOLD || lowStrength > SNDTHRESHOLD)
-  		  //soundWaypoint(highStrength, lowStrength);
-  	  // If finished
-  	  else
-  		  celebratory_music();
-    }
+  // If color waypoint
+  if (colourRes > 0)
+  	colourWaypoint(colourRes);
+  // If sound waypoint
+  //else if (highStrength > SNDTHRESHOLD || lowStrength > SNDTHRESHOLD)
+  	//soundWaypoint(highStrength, lowStrength);
+  // If finished
+  else
+    celebratory_music();
+  }
 
-    // If no waypoint
+  // If no waypoint
     
-    if (tooClose(rightDist, leftDist)) {
-  	  reAdjust(rightDist, leftDist);
-    }
-    else {
-  	  forward();
-    }
+  if (tooClose(rightDist, leftDist)) { // to replace with Walter's
+  	reAdjust(rightDist, leftDist);
+  } else {
+  	forward();
+  }
 }
 
 /*MOVEMENT FUNCTIONS*/
@@ -320,7 +325,7 @@ void loop() {
 // doubleLeft
 // uTurn
 
-// Below - to be checked with IR sensor
+// Below - to be checked with IR sensor (replace with Walter's?)
 // reAdjust
 // reAdjustRight
 // reAdjustLeft
@@ -374,6 +379,7 @@ void uTurn() {
   turnRight();
 }
 
+/* to replace with walters below */
 void reAdjust(float rightDist, float leftDist) {
   if (rightDist < SIDETHRESHOLD) reAdjustLeft();
   else reAdjustRight();
@@ -396,20 +402,19 @@ void reAdjustLeft() {
 int tooClose(float rightDist, float leftDist) {
   return rightDist < SIDETHRESHOLD || leftDist < SIDETHRESHOLD;
 }
-
+/* to replace with walter's above */
 
 /* COLOUR FUNCTIONS */
 // setBalance - calibrate between white and black
-// setColours - set values of default colours into allColoursArray
-// getColourValues - gets colour values of a given sample
 // getColour - get colour from the default colours
+// getColourValues - gets colour values of a given sample
 // getAvgReading - gets direct reading from LDR
+// printColour - prints detected colour for troubleshooting
 
 void setBalance() {
   //set white balance
   Serial.println("Put White Sample For Calibration ...");
   delay(5000);           //delay for five seconds for getting sample ready
-  //digitalWrite(LED,LOW); //Check Indicator OFF during Calibration
   //scan the white sample.
   //go through one colour at a time, set the maximum reading for each colour -- red, green and blue to the white array
   for (int i = 0; i <= 2; i++) {
@@ -455,42 +460,26 @@ void setBalance() {
   delay(5000);
 }
 
-/*
-void setColours(int colour) {
-  switch (colour) {
-    case 0: Serial.println("Put Red Sample For Calibration ..."); break;
-    case 1: Serial.println("Put Green Sample For Calibration ..."); break;
-    case 2: Serial.println("Put Yellow Sample For Calibration ..."); break;
-    case 3: Serial.println("Put Purple Sample For Calibration ..."); break;
-    case 4: Serial.println("Put Light Blue Sample For Calibration ..."); break;
-  }
-  delay(5000);
-  for (int c = 0; c <= 2; c++) {
-    getColourValues(c);
-    allColourArray[colour][c] = colourArray[c];
-    delay(RGBWait);
-    Serial.println(int(colourArray[c])); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
-  }
-  led.setColor(0, 0, 0);
-  led.show();
-  delay(5000);
-}
-*/
+
 int getColour() {
-  for (int i = 0; i < 5; i++) {
-    for (int j = 0; j < 3; j++) {
-      getColourValues(j);
-      delay(RGBWait);
-      Serial.println(int(colourArray[j])); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
-      
-      /* TO CHANGE TO FINALCOLOURARRAY AFTER CALIBRATION */
-      if (abs(allColourArray[i][j] - colourArray[j]) > COLOURTHRESHOLD)
-        break;
-      else if (j == 2)
-        return i;
+  // temp to make sure at least 1 colour is detected at a waypoint - black, red, green, yellow, purple, light blue
+  // else loop till a colour is found
+  int temp=-1;
+  while (temp < 0) {
+    for (int i = 0; i < NUMCOL; i++) {
+      for (int j = 0; j < 3; j++) {
+        getColourValues(j);
+        delay(RGBWait);
+        Serial.println(int(colourArray[j])); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
+        
+        if (abs(finalColVal[i][j] - colourArray[j]) > COLOURTHRESHOLD) {
+          break;
+        } else if (j == 2) {
+          temp = i;
+          return i;
+        }
     }
   }
-  return -1;
 }
 
 int getColourValues(int rgb) {
@@ -528,44 +517,88 @@ int getAvgReading(int times) {
   return total / times;
 }
 
+void printColour(int colourRes) {
+  String s;
+  Serial.print("Colour detected: ");
+  switch (colourRes){
+    case 0:
+      s="black";
+    case 1:
+      s="red";
+      break;
+    case 2:
+      s="green";
+      break;
+    case 3:
+      s="yellow";
+      break;
+    case 4:
+      s="purple";
+      break;
+    case 5:
+      s="light blue";
+      break;
+    default:
+      s="not found";
+      break;
+  }
+  Serial.println(s);
+}
+
+/* SOUND PEAK DETECTOR */
+
+// Function to check for sound, 100 checks to make sure correct sound frequency detected
+int soundVal(int pin) {
+  int val, temp; //  actual and temp
+  for (int i = 0; i < 100; i++) {
+    temp = analogRead(pin);
+    if (temp > val)
+      val = temp;
+  }
+  return val;
+}
 
 
+/* WAYPOINT CHECK*/
 // Function for waypoint checking using Line Sensor
 // returns true if black strip
 // returns false if no black strip
-
 int checkWaypoint(int lineState) {
-  // lineState values:
+  // lineState values (S1 and S2 are the 2 sensors - in or out the black line):
+  
   // S1_IN_S2_IN
   // S1_IN_S2_OUT
   // S1_OUT_S2_IN
   // S1_OUT_S2_OUT
   // To decide which to use
-  return lineState == S1_IN_S2_IN;
+  return lineState != S1_OUT_S2_OUT;
 }
 
 /* WAYPOINT FUNCTIONS*/
-
+// Detects colour and moves appropriately
 void colourWaypoint(uint8_t colourRes) {
   switch (colourRes) {
-    case 0: // Red
+    case 0: // Black
+      break;
+    case 1: // Red
       turnLeft();
       break;
-    case 1: // Green
+    case 2: // Green
       turnRight();
       break;
-    case 2: // Yellow
+    case 3: // Yellow
       uTurn();
       break;
-    case 3: // Purple
+    case 4: // Purple
       doubleLeft();
       break;
-    case 4: // LightBlue
+    case 5: // LightBlue
       doubleRight();
       break;
   }
 }
 
+// Detects sound and moves appropriately
 void soundWaypoint(uint8_t highStrength, uint8_t lowStrength) {
   if (highStrength > SNDTHRESHOLD)
     turnRight();
@@ -573,6 +606,10 @@ void soundWaypoint(uint8_t highStrength, uint8_t lowStrength) {
     turnLeft();
 }
 
+// Called when finish is detected, celebratory music played
+// play mario theme song
+// melody sheet by: Dipto Pratyaksa
+// buzzer seems to be pin8
 void celebratory_music(){
  int melody[] = {
     NOTE_E7, NOTE_E7, 0, NOTE_E7, 

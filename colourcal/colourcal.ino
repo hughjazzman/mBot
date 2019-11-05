@@ -1,6 +1,14 @@
 // SEPARATE FILE to calibrate colour
-/* TO CHANGE allColourArray in getColour() in main.ino to COLARRs 
+/* TO CHANGE allColourArray in getColour() in main.ino to finalColVal 
 after finding values from colourcal.ino */
+
+// Final values determined on 05 Nov 19
+#define REDARR {193,45,42}
+#define GREARR {43, 111, 53}
+#define YELARR {266, 175, 102}
+#define PURARR {131, 130, 191}
+#define BLUARR {129, 186, 213}
+#define BLAARR {0,0,0}
 
 #include <MeRGBLed.h>
 
@@ -18,7 +26,7 @@ after finding values from colourcal.ino */
 
 #define MAXLED 255 // max value of LED RGB values
 
-#define COLOURTHRESHOLD 10 //max deviation from calibrated colour values
+#define COLOURTHRESHOLD 20 //max deviation from calibrated colour values
 
 // Color Sensor setup - confirmed
 MeRGBLed led(7); // pin 7 is the RGB LED (WHY??)
@@ -65,18 +73,20 @@ void printColour(int colourRes) {
   String s;
   switch (colourRes){
     case 0:
+      s="black";
+    case 1:
       s="red";
       break;
-    case 1:
+    case 2:
       s="green";
       break;
-    case 2:
+    case 3:
       s="yellow";
       break;
-    case 3:
+    case 4:
       s="purple";
       break;
-    case 4:
+    case 5:
       s="light blue";
       break;
     default:

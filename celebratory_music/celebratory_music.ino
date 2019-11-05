@@ -99,7 +99,7 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  celebratory_music;
+  celebratory_music();
   /* put celebratory music function in color/sound challenge function?
    * after mbot stop at black line -> color challenge -> detect black color paper
    * -> (sound challenge? not sure if necessary) -> play celebratory music
