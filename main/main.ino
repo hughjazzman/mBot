@@ -306,9 +306,11 @@ void loop() {
   	  reAdjust(rightDist, leftDist);
     }
     else if (checkFront(frontDistance)){
-      turnRight; 
-      if (checkFront(frontDistance)){
-        uTurn;
+      if (rightDist > leftDist){
+        turnRight;
+      }
+      else{
+        turnLeft;
       }
     }
     else {
