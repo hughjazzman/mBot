@@ -241,92 +241,11 @@ void setup() {
 }
 
 void loop() {
-
-  /* To test Movement*/
-
-  //forward();
-  //turnRight();
-  //turnLeft();
-  //uTurn();
-  //doubleRight();
-  //doubleLeft();
-  //forwardGrid();
-
-  
-  // put your main code here, to run repeatedly:
-  frontDistance = ultraSensor.distanceCm(); // Distance to wall in front
-  lineState = lineFinder.readSensors(); // Detection black strip below
-  waypoint = checkWaypoint(lineState); // Presence of black strip
-  
-  // Side wall "distances" (in V)
-  rightDist = analogRead(IRR);
-  leftDist = analogRead(IRL);
-
-
-  /* To test LineFinder*/
-
-  /*
-    
-    if (lineState != S1_OUT_S2_OUT){
-      stopMove();
-      Serial.println("stop");
-      turnRight();
-    }
-    else {
-      forward();
-      Serial.println("forward");
-    }
-  */
-  /*To test IR sensor*/
-
-  /*To test colour detection */
-  /*
-  colourRes = getColour();
-  colourWaypoint(colourRes);
-  */
-  /* To test sound */
-
-
-  /* Actual logic here */
-  // If waypoint detected, decode it
-  if (waypoint) {
-    stopMove();
-  	delay(WAYPTDELAY); // Delay before start
-  	colourRes = getColour(); // Get preset colour result
-    printColour(colourRes);
-  	highStrength = soundVal(SNDHI); // Get high f sound strength
-  	lowStrength = soundVal(SNDLOW); // Get low f sound strength
-
-    // Waypoint decoding
-    // If color waypoint
-    if (colourRes > 0)
-  	  colourWaypoint(colourRes);
-    // If sound waypoint
-    //else if (highStrength > SNDTHRESHOLD || lowStrength > SNDTHRESHOLD)
-  	  //soundWaypoint(highStrength, lowStrength);
-    // If finished
-    else
-      celebratory_music();
-  }
-
-  // If no waypoint
-  // Failsafe if waypoint not detected and wall in front
-  if (checkFront(frontDistance)){
-    if (rightDist > leftDist){
-      turnRight();
-    }
-    else {
-      turnLeft();
-    }
-  }
-  // Readjust if too close to right or left wall
-  else if (tooClose(rightDist, leftDist)) {
-  	reAdjust(rightDist, leftDist);
-  } 
-  // Default movement: forward 
-  else {
-  	forward();
-  }
+//  moveTest();
+//  lineTest();
+//  ultraIRTest();
+//  colourTest();
+//  soundTest();
 }
 
 /*MOVEMENT FUNCTIONS*/
@@ -704,4 +623,64 @@ void celebratory_music(){
     // stop the tone playing:
     buzzer.noTone(8);
  }
+}
+
+// Movement Tests
+void moveTest() {
+  forward();
+  turnRight();
+  turnLeft();
+  uTurn();
+  forwardGrid();
+  doubleRight();
+  doubleLeft();
+}
+
+// LineFinder Tests
+void lineTest() {
+  lineState = lineFinder.readSensors(); // Detection black strip below
+  if (lineState != S1_OUT_S2_OUT){
+    stopMove();
+    Serial.println("stop");
+    uTurn();
+  }
+  else {
+    forward();
+    Serial.println("forward");
+  }
+}
+
+// Sensor movement test
+void ultraIRTest() {
+  frontDistance = ultraSensor.distanceCm(); // Distance to wall in front
+  rightDist = analogRead(IRR);
+  leftDist = analogRead(IRL);
+  if (checkFront(frontDistance)){
+    if (rightDist > leftDist){
+      turnRight();
+    }
+    else {
+      turnLeft();
+    }
+  }
+  else if (tooClose(rightDist, leftDist)) {
+    reAdjust(rightDist, leftDist);
+  } 
+  // Default movement: forward 
+  else {
+    forward();
+  }
+}
+
+// Colour decoding Test
+void colourTest() {
+  colourRes = getColour();
+  colourWaypoint(colourRes);
+}
+
+// Sound decoding Test
+void soundTest() {
+  highStrength = soundVal(SNDHI); // Get high f sound strength
+  lowStrength = soundVal(SNDLOW); // Get low f sound strength
+  soundWaypoint(highStrength, lowStrength);
 }
