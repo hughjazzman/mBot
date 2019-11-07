@@ -455,11 +455,15 @@ void setBalance() {
 }
 
 int getColour() {
+  int temp;
   getColourValues();
   Serial.println(int(colourArray[0])); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
   for (int i = 0; i < NUMCOL; i++) {
     delay(RGBWait);
-    if (abs(finalColVal[i][0] - colourArray[0]) < COLOURTHRESHOLD)
+    temp = colourArray[0];
+    if (temp > 350 && temp < 450) // catch blue as it has bigger variance
+      return 5;
+    if (abs(allColourArray[i][0] - temp) < COLOURTHRESHOLD)
       return i;
   }
   return -1;
