@@ -4,17 +4,18 @@
 after finding values from colourcal.ino */
 
 // Final values determined on
-// WHIVAL and BLAVAL are white and black values from the light sensor
+// WHIVAL and BLAVAL are white and black values from the light sensor LDR
 // using analogRead()
-// To be done on the day itself
-#define WHIVAL 620
-#define BLAVAL 530
-#define REDARR {45} 
-#define GREARR {160}
-#define YELARR {225}
-#define PURARR {265} //
-#define BLUARR {380}
-#define BLAARR {0}
+// To be calibrated as close to date
+// rest of values can be fixed
+#define WHIVAL 620 // value from LDR
+#define BLAVAL 530 // value from LDR
+#define REDVAL 45 //fixed
+#define GREVAL 160 //fixed
+#define YELVAL 230 //to check
+#define PURVAL 260 //to check
+#define BLUVAL 380 //to check
+#define BLAVAL 0
 #define NUMCOL 6
 
 #include <MeRGBLed.h>
@@ -36,23 +37,16 @@ after finding values from colourcal.ino */
 #define COLOURTHRESHOLD 15 //max deviation from calibrated colour values
 
 // Color Sensor setup - confirmed
-MeRGBLed led(7); // pin 7 is the RGB LED (WHY??)
+MeRGBLed led(7); // pin 7 is the RGB LED
 
 /* COLOUR VARIABLES*/
 
-//placeholders for colour detected
-int red = 0;
-int green = 0;
-int blue = 0;
-
 //floats to hold colour arrays
-float colourArray[] = {0};
-float whiteArray[] = {WHIVAL}; //580, 536
-float blackArray[] = {BLAVAL}; // 475
-float greyDiff[] = {WHIVAL-BLAVAL};
-float allColourArray[NUMCOL][3] = {BLAARR, REDARR, GREARR, YELARR, PURARR, BLUARR}; // red,green,yellow,purple,lightblue
-
-char colourStr[3][5] = {"R = ", "G = ", "B = "};
+float colourArray = 0;
+float whiteArray = WHIVAL; //580, 536
+float blackArray = BLAVAL; // 475
+float greyDiff = WHIVAL-BLAVAL;
+float allColourArray[NUMCOL] = {BLAVAL, REDVAL, GREVAL, YELVAL, PURVAL, BLUVAL }; // black, red,green,yellow,purple,lightblue
 
 //resulting colour at waypoints (calibration done before start)
 int colourRes = 0;
@@ -62,10 +56,10 @@ void setup() {
   Serial.begin(9600);
   //colour calibration first
   // to do: save values in array
-// setBalance();
-//  for (int i = 0; i < 5; i++) {
-//    setColours(i);
-//  }
+  // setBalance();
+  //  for (int i = 0; i < 5; i++) {
+  //    setColours(i);
+  //  }
 }
 
 void loop() {
@@ -120,8 +114,8 @@ void setBalance() {
   led.setColor(0, MAXLED, MAXLED);
   led.show();
   delay(RGBWait);
-  whiteArray[0]=getAvgReading(5);
-  Serial.println(whiteArray[0]);
+  whiteArray=getAvgReading(5);
+  Serial.println(whiteArray);
   delay(RGBWait);
   //done scanning white, time for the black sample.
   //set black balance
@@ -130,11 +124,11 @@ void setBalance() {
   led.setColor(0, MAXLED,  MAXLED);
   led.show();
   delay(RGBWait);
-  blackArray[0] = getAvgReading(5);
-  Serial.println(blackArray[0]);
+  blackArray = getAvgReading(5);
+  Serial.println(blackArray);
   delay(RGBWait);
   //the differnce between the maximum and the minimum gives the range
-  greyDiff[0] = whiteArray[0] - blackArray[0];
+  greyDiff = whiteArray - blackArray;
 
   //delay another 5 seconds for getting ready colour objects
   Serial.println("Colour Sensor Is Ready.");
@@ -152,19 +146,29 @@ void setColours(int colour) {
   }
   delay(5000);
   getColourValues();
-  allColourArray[colour][0] = colourArray[0];
+  allColourArray[colour] = colourArray;
   delay(RGBWait);
-  Serial.println(int(colourArray[0])); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
+  Serial.println(int(colourArray)); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
   delay(5000);
 }
 
 int getColour() {
+  int curr, next;
   getColourValues();
-  Serial.println(int(colourArray[0])); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
+  Serial.println(int(colourArray)); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
   for (int i = 0; i < NUMCOL; i++) {
     delay(RGBWait);
-    if (abs(allColourArray[i][0] - colourArray[0]) < COLOURTHRESHOLD)
+	curr = allColourArray[i];
+	next = allColourArray[i+1]
+    if (i == 6)
       return i;
+	else if (colourArray > allColourArray[i] && colourArray < allColourArray[i + 1]) {
+		if (colourArray <= (allColourArray[i] + allColourArray[i + 1]) / 2)
+			return i;
+		else
+			return i + 1;
+	}
+	  
   }
   return -1;
 }
@@ -172,9 +176,9 @@ int getColour() {
 void getColourValues() {
   delay(RGBWait);
   //get the average of 5 consecutive readings for the current colour and return an average
-  colourArray[0] = getAvgReading(5);
+  colourArray = getAvgReading(5);
   //the average reading returned minus the lowest value divided by the maximum possible range, multiplied by 255 will give a value between 0-255, representing the value for the current reflectivity (i.e. the colour LDR is exposed to)
-  colourArray[0] = (colourArray[0] - blackArray[0]) / (greyDiff[0]) * 255;
+  colourArray = (colourArray - blackArray) / (greyDiff) * 255;
 }
 
 int getAvgReading(int times) {
