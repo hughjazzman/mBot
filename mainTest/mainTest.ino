@@ -463,7 +463,7 @@ int getColour() {
     temp = colourArray[0];
     if (temp > 350 && temp < 450) // catch blue as it has bigger variance
       return 5;
-    if (abs(allColourArray[i][0] - temp) < COLOURTHRESHOLD)
+    if (abs(finalColVal[i][0] - temp) < COLOURTHRESHOLD)
       return i;
   }
   return -1;
