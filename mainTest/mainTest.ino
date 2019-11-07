@@ -32,11 +32,14 @@
 #define WAYPTDELAY 100
 #define SNDTHRESHOLD 500
 #define TIMEDELAY 20
-#define TIMETURN 1100
-#define TIMEGRID 2250
-#define FRNTTHRESHOLD 5
-#define SIDETHRESHOLD 0.5
-#define ADJTHRESHOLD 50
+#define TIMETURN 860
+#define TIMEGRID 2200
+#define FRNTTHRESHOLD 5 // ultra to check
+#define SIDETHRESHOLD 425 // IR to check
+#define LEFTTHRESHOLD 425 // IR to check
+#define RIGHTTHRESHOLD 325 // IR to check
+#define ADJTHRESHOLD 5
+#define MOTORSPEED 100
 
 // Infrared side sensor pins
 #define IRL A1 //left
@@ -62,12 +65,19 @@
 // Calibrated values for each colour used in colour waypoint test
 // Values retrieved from colourcal.ino file after calibration
 // Values placed in finalColVal array to be used in logic below
-#define REDARR {193,45,42}
-#define GREARR {43, 111, 53}
-#define YELARR {266, 175, 102}
-#define PURARR {131, 130, 191}
-#define BLUARR {129, 186, 213}
-#define BLAARR {0,0,0}
+// Final values determined on
+// WHIVAL and BLAVAL are white and black values from the light sensor
+// using analogRead()
+// To be close to the day itself
+// Rest of colours should be fixed before then
+#define WHIVAL 620 // change this
+#define BLAVAL 530 // change this, no need change rest below
+#define REDARR {45} 
+#define GREARR {160}
+#define YELARR {225}
+#define PURARR {265} //
+#define BLUARR {395}
+#define BLAARR {0} // end of maze
 #define NUMCOL 6 // number of colours in finalColVal - black, red, green, yellow, purple, blue
 
 /* NOTES FOR CELEBRATORY TUNE */
@@ -182,7 +192,7 @@ MeBuzzer buzzer;
 /* VARIABLES */
 
 // Used in Motor
-uint8_t motorSpeed = 100;
+uint8_t motorSpeed = MOTORSPEED;
 // no. of TIMEDELAY cycles to travel 1 grid
 int delayGrid = TIMEGRID / TIMEDELAY;
 
@@ -203,12 +213,12 @@ int green = 0;
 int blue = 0;
 
 //floats to hold colour arrays
-float colourArray[] = {0, 0, 0};
-float whiteArray[] = {0, 0, 0};
-float blackArray[] = {0, 0, 0};
-float greyDiff[] = {0, 0, 0};
+float colourArray[] = {0};
+float whiteArray[] = {WHIVAL}; //580, 536
+float blackArray[] = {BLAVAL}; // 475
+float greyDiff[] = {WHIVAL-BLAVAL};
 //int allColourArray[5][3] = {0, 0, 0}; // red,green,yellow,purple,lightblue
-int finalColVal[6][3] = {BLAARR, REDARR,GREARR,YELARR,PURARR,BLUARR};
+int finalColVal[NUMCOL][1] = {BLAARR, REDARR,GREARR,YELARR,PURARR,BLUARR};
 
 char colourStr[3][5] = {"R = ", "G = ", "B = "};
 
@@ -235,17 +245,47 @@ void setup() {
   pinMode(SNDHI, INPUT);
   //pinMode(13, OUTPUT); // RGBLed
   Serial.begin(9600);
-
+  led.setColor(0, MAXLED,  MAXLED);
+  led.show();
   //colour calibration first (black and white)
-  setBalance();
+  //setBalance();
 }
 
 void loop() {
 //  moveTest();
 //  lineTest();
 //  ultraIRTest();
-//  colourTest();
+// colourTest();
 //  soundTest();
+  lineState = lineFinder.readSensors(); // Detection black strip below
+  waypoint = checkWaypoint(lineState); // Presence of black strip
+  /* Actual logic here */
+  // If waypoint detected, decode it
+  if (waypoint) {
+    stopMove();
+    delay(WAYPTDELAY); // Delay before start
+    colourRes = getColour(); // Get preset colour result
+    //highStrength = soundVal(SNDHI); // Get high f sound strength
+    //lowStrength = soundVal(SNDLOW); // Get low f sound strength
+
+    // Waypoint decoding
+    // If color waypoint
+    while (colourRes == -1) {
+      colourRes = getColour(); // Get preset colour result
+      printColour(colourRes);
+    }
+    
+    if (colourRes > 0 && colourRes < 6)
+      colourWaypoint(colourRes);
+    // If sound waypoint
+    //else if (highStrength > SNDTHRESHOLD || lowStrength > SNDTHRESHOLD)
+      //soundWaypoint(highStrength, lowStrength);
+    // If finished
+    else
+      celebratory_music();
+  }
+  else
+    forward();
 }
 
 /*MOVEMENT FUNCTIONS*/
@@ -270,8 +310,9 @@ void forward() {
 }
 
 void stopMove() {
-  leftWheel.stop();
   rightWheel.stop();
+  leftWheel.stop();
+  delay(TIMEDELAY*10);
 }
 
 void forwardGrid() {
@@ -348,116 +389,9 @@ int checkFront(int frontDistance){
 // getAvgReading - gets direct reading from LDR
 // printColour - prints detected colour for troubleshooting
 
-void setBalance() {
-  //set white balance
-  Serial.println("Put White Sample For Calibration ...");
-  delay(5000);           //delay for five seconds for getting sample ready
-  //scan the white sample.
-  //go through one colour at a time, set the maximum reading for each colour -- red, green and blue to the white array
-  for (int i = 0; i <= 2; i++) {
-    int r = 0, g = 0, b = 0;
-    switch (i) {
-      case 0: r = 1; break;
-      case 1: g = 1; break;
-      case 2: b = 1; break;
-    }
-    led.setColor(r * MAXLED, g * MAXLED, b * MAXLED);
-    led.show();
-    delay(RGBWait);
-    whiteArray[i] = getAvgReading(5);
-    delay(RGBWait);
-  }
-  led.setColor(0, 0, 0);
-  led.show();
-  //done scanning white, time for the black sample.
-  //set black balance
-  Serial.println("Put Black Sample For Calibration ...");
-  delay(5000);     //delay for five seconds for getting sample ready
-  //go through one colour at a time, set the minimum reading for red, green and blue to the black array
-  for (int i = 0; i <= 2; i++) {
-    int r = 0, g = 0, b = 0;
-    switch (i) {
-      case 0: r = 1; break;
-      case 1: g = 1; break;
-      case 2: b = 1; break;
-    }
-    led.setColor(r * MAXLED, g * MAXLED, b * MAXLED);
-    led.show();
-    delay(RGBWait);
-    blackArray[i] = getAvgReading(5);
-    delay(RGBWait);
-    //the differnce between the maximum and the minimum gives the range
-    greyDiff[i] = whiteArray[i] - blackArray[i];
-  }
-  led.setColor(0, 0, 0);
-  led.show();
-
-  //delay another 5 seconds for getting ready colour objects
-  Serial.println("Colour Sensor Is Ready.");
-  delay(5000);
-}
-
-
-int getColour() {
-  // temp to make sure at least 1 colour is detected at a waypoint - black, red, green, yellow, purple, light blue
-  // else loop till a colour is found
-  int temp=-1;
-  while (temp < 0) {
-    for (int i = 0; i < NUMCOL; i++) {
-      for (int j = 0; j < 3; j++) {
-        getColourValues(j);
-        delay(RGBWait);
-        Serial.println(int(colourArray[j])); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
-        
-        if (abs(finalColVal[i][j] - colourArray[j]) > COLOURTHRESHOLD) {
-          break;
-        } else if (j == 2) {
-          temp = i;
-          return i;
-        }
-      }
-    }
-  }
-}
-
-int getColourValues(int rgb) {
-  Serial.print(colourStr[rgb]);
-  int r = 0, g = 0, b = 0;
-  switch (rgb) {
-    case 0: r = 1; break;
-    case 1: g = 1; break;
-    case 2: b = 1; break;
-  }
-  led.setColor(r * MAXLED, g * MAXLED, b * MAXLED);
-  led.show();//turn ON the LED, red, green or blue, one colour at a time.
-  delay(RGBWait);
-  //get the average of 5 consecutive readings for the current colour and return an average
-  colourArray[rgb] = getAvgReading(5);
-  //the average reading returned minus the lowest value divided by the maximum possible range, multiplied by 255 will give a value between 0-255, representing the value for the current reflectivity (i.e. the colour LDR is exposed to)
-  colourArray[rgb] = (colourArray[rgb] - blackArray[rgb]) / (greyDiff[rgb]) * 255;
-  led.setColor(0, 0, 0);
-  led.show();
-}
-
-
-
-int getAvgReading(int times) {
-  //find the average reading for the requested number of times of scanning LDR
-  int reading;
-  int total = 0;
-  //take the reading as many times as requested and add them up
-  for (int i = 0; i < times; i++) {
-    reading = analogRead(LDR);
-    total = reading + total;
-    delay(LDRWait);
-  }
-  //calculate the average and return it
-  return total / times;
-}
 
 void printColour(int colourRes) {
   String s;
-  Serial.print("Colour detected: ");
   switch (colourRes){
     case 0:
       s="black";
@@ -484,6 +418,74 @@ void printColour(int colourRes) {
   Serial.println(s);
 }
 
+/* COLOUR FUNCTIONS */
+// setBalance - calibrate between white and black
+// getColourValues - gets colour values of a given sample
+// getColour - get colour from the default colours
+// getAvgReading - gets direct reading from LDR
+
+void setBalance() {
+  //set white balance
+  Serial.println("Put White Sample For Calibration ...");
+  delay(5000);           //delay for five seconds for getting sample ready
+  //scan the white sample.
+  //go through one colour at a time, set the maximum reading for each colour -- red, green and blue to the white array
+  led.setColor(0, MAXLED, MAXLED);
+  led.show();
+  delay(RGBWait);
+  whiteArray[0]=getAvgReading(5);
+  Serial.println(whiteArray[0]);
+  delay(RGBWait);
+  //done scanning white, time for the black sample.
+  //set black balance
+  Serial.println("Put Black Sample For Calibration ...");
+  delay(5000);     //delay for five seconds for getting sample ready
+  led.setColor(0, MAXLED,  MAXLED);
+  led.show();
+  delay(RGBWait);
+  blackArray[0] = getAvgReading(5);
+  Serial.println(blackArray[0]);
+  delay(RGBWait);
+  //the differnce between the maximum and the minimum gives the range
+  greyDiff[0] = whiteArray[0] - blackArray[0];
+
+  //delay another 5 seconds for getting ready colour objects
+  Serial.println("Colour Sensor Is Ready.");
+  delay(5000);
+}
+
+int getColour() {
+  getColourValues();
+  Serial.println(int(colourArray[0])); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
+  for (int i = 0; i < NUMCOL; i++) {
+    delay(RGBWait);
+    if (abs(finalColVal[i][0] - colourArray[0]) < COLOURTHRESHOLD)
+      return i;
+  }
+  return -1;
+}
+
+void getColourValues() {
+  delay(RGBWait);
+  //get the average of 5 consecutive readings for the current colour and return an average
+  colourArray[0] = getAvgReading(5);
+  //the average reading returned minus the lowest value divided by the maximum possible range, multiplied by 255 will give a value between 0-255, representing the value for the current reflectivity (i.e. the colour LDR is exposed to)
+  colourArray[0] = (colourArray[0] - blackArray[0]) / (greyDiff[0]) * 255;
+}
+
+int getAvgReading(int times) {
+  //find the average reading for the requested number of times of scanning LDR
+  int reading;
+  int total = 0;
+  //take the reading as many times as requested and add them up
+  for (int i = 0; i < times; i++) {
+    reading = analogRead(LDR);
+    total = reading + total;
+    delay(LDRWait);
+  }
+  //calculate the average and return it
+  return total / times;
+}
 /* SOUND PEAK DETECTOR */
 
 // Function to check for sound, 100 checks to make sure correct sound frequency detected
@@ -627,13 +629,19 @@ void celebratory_music(){
 
 // Movement Tests
 void moveTest() {
-  forward();
+  forwardGrid();
   turnRight();
   turnLeft();
   uTurn();
   forwardGrid();
   doubleRight();
+  forwardGrid();
   doubleLeft();
+  forwardGrid();
+  turnLeft();
+  forwardGrid();
+  forwardGrid();
+  turnLeft();
 }
 
 // LineFinder Tests
@@ -642,7 +650,6 @@ void lineTest() {
   if (lineState != S1_OUT_S2_OUT){
     stopMove();
     Serial.println("stop");
-    uTurn();
   }
   else {
     forward();
@@ -655,6 +662,11 @@ void ultraIRTest() {
   frontDistance = ultraSensor.distanceCm(); // Distance to wall in front
   rightDist = analogRead(IRR);
   leftDist = analogRead(IRL);
+  Serial.print("Right:");
+  Serial.println(rightDist);
+  Serial.print("Left:");
+  Serial.println(leftDist);
+  /*
   if (checkFront(frontDistance)){
     if (rightDist > leftDist){
       turnRight();
@@ -670,12 +682,21 @@ void ultraIRTest() {
   else {
     forward();
   }
+  */
 }
 
 // Colour decoding Test
 void colourTest() {
-  colourRes = getColour();
-  colourWaypoint(colourRes);
+  led.setColor(0,MAXLED,MAXLED);
+  led.show();
+  forward();
+  lineState = lineFinder.readSensors(); // Detection black strip below
+  if (lineState != S1_OUT_S2_OUT) {
+    stopMove();
+    colourRes = getColour();
+    colourWaypoint(colourRes);
+    delay(TIMEGRID); 
+  }
 }
 
 // Sound decoding Test
