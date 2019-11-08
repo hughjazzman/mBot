@@ -8,8 +8,8 @@ after finding values from colourcal.ino */
 // using analogRead()
 // To be calibrated as close to date
 // rest of values can be fixed
-#define WHIVAL 620 // value from LDR
-#define BLAVAL 530 // value from LDR
+#define WHIVAL 620 // value from LDR - to change every session
+#define BLAVAL 530 // value from LDR - to change every session
 #define REDVAL 45 //fixed
 #define GREVAL 160 //fixed
 #define YELVAL 230 //to check
@@ -43,8 +43,8 @@ MeRGBLed led(7); // pin 7 is the RGB LED
 
 //floats to hold colour arrays
 float colourArray = 0;
-float whiteArray = WHIVAL; //580, 536
-float blackArray = BLAVAL; // 475
+float whiteArray = WHIVAL;
+float blackArray = BLAVAL;
 float greyDiff = WHIVAL-BLAVAL;
 float finalColVal[NUMCOL] = {BLAVAL, REDVAL, GREVAL, YELVAL, PURVAL, BLUVAL }; // black, red,green,yellow,purple,lightblue
 
