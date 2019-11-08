@@ -180,21 +180,20 @@ void loop() {
     stopMove();
     delay(WAYPTDELAY); // Delay before start
     colourRes = getColour(); // Get preset colour result
-    //highStrength = soundVal(SNDHI); // Get high f sound strength
-    //lowStrength = soundVal(SNDLOW); // Get low f sound strength
+    soundVal(); // get sound values
 
     // Waypoint decoding
-    // If color waypoint
+    // will only finish this loop if a colour is detected
     while (colourRes == -1) {
       colourRes = getColour(); // Get preset colour result
       printColour(colourRes);
     }
-    
+    // If color waypoint
     if (colourRes > 0)
       colourWaypoint(colourRes);
     // If sound waypoint
-    //else if (highStrength > SNDTHRESHOLD || lowStrength > SNDTHRESHOLD)
-      //soundWaypoint(highStrength, lowStrength);
+    else if (isSound())
+      soundWaypoint(isSound());
     // If finished
     else
       celebratory_music();
@@ -333,12 +332,6 @@ void printColour(int colourRes) {
   Serial.println(s);
 }
 
-/* COLOUR FUNCTIONS */
-// setBalance - calibrate between white and black
-// getColourValues - gets colour values of a given sample
-// getColour - get colour from the default colours
-// getAvgReading - gets direct reading from LDR
-
 void setBalance() {
 	//set white balance
 	Serial.println("Put White Sample For Calibration ...");
@@ -372,7 +365,7 @@ void setBalance() {
 int getColour() {
   int curr, next;
   getColourValues();
-  Serial.println(int(colourArray)); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
+  Serial.println(int(colourArray)); //show the value for the current colour LED
   // If no valid value return invalid
   if (colourArray < -30 || colourArray > 450)
     return -1;
@@ -391,7 +384,6 @@ int getColour() {
         return i + 1;
     }
   }
-  return -1;
 }
 
 void getColourValues() {
@@ -415,9 +407,11 @@ int getAvgReading(int times) {
   //calculate the average and return it
   return total / times;
 }
-/* SOUND PEAK DETECTOR */
 
-// Function to check for sound, SNDSAMPLE checks to make sure correct sound frequency detected
+/* SOUND PEAK DETECTOR */
+// soundVal - Function to check for sound, SNDSAMPLE checks to make sure correct sound frequency detected
+// isSound - tells which sound is being played, if any
+
 void soundVal() {
   for (int i = 0; i < SNDSAMPLE; i++) {
     valueLow[i] = analogRead(SNDLOW)/204.6;
@@ -425,6 +419,18 @@ void soundVal() {
     valueHigh[i] = analogRead(SNDHI)/204.6;
     delay(100);
   }
+}
+
+int isSound() {
+  for (int i=0; i<SNDSAMPLE; i++) {
+    if (valueLow[i] > SNDTHRESHOLD) {
+      return 1;
+    }
+    else if (valueHigh[i] > SNDTHRESHOLD) {
+      return 2;
+    }
+  }
+  return 0;
 }
 
 
@@ -468,13 +474,11 @@ void colourWaypoint(uint8_t colourRes) {
 }
 
 // Detects sound and moves appropriately
-void soundWaypoint() {
-  for (int i=0; i<SNDSAMPLE; i++) {
-    if (valueLow[i] > SNDTHRESHOLD)
-      turnRight();
-    else if (valueHigh[i] > SNDTHRESHOLD)
-      turnLeft();
-  }
+void soundWaypoint(int isSound) {
+  if (isSound == 1)
+    turnLeft();
+  else if (isSound == 2)
+    turnRight();
 }
 
 // Called when finish is detected, celebratory music played
@@ -632,5 +636,5 @@ void colourTest() {
 // Sound decoding Test
 void soundTest() {
   soundVal();
-  soundWaypoint();
+  soundWaypoint(isSound());
 }
