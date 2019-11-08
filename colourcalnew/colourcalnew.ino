@@ -1,6 +1,6 @@
 // SEPARATE FILE to calibrate colour
 // Uses CYAN ONLY instead of RGB
-/* TO CHANGE allColourArray in getColour() in main.ino to finalColVal 
+/* TO CHANGE finalColVal in getColour() in main.ino to finalColVal 
 after finding values from colourcal.ino */
 
 // Final values determined on
@@ -46,7 +46,7 @@ float colourArray = 0;
 float whiteArray = WHIVAL; //580, 536
 float blackArray = BLAVAL; // 475
 float greyDiff = WHIVAL-BLAVAL;
-float allColourArray[NUMCOL] = {BLAVAL, REDVAL, GREVAL, YELVAL, PURVAL, BLUVAL }; // black, red,green,yellow,purple,lightblue
+float finalColVal[NUMCOL] = {BLAVAL, REDVAL, GREVAL, YELVAL, PURVAL, BLUVAL }; // black, red,green,yellow,purple,lightblue
 
 //resulting colour at waypoints (calibration done before start)
 int colourRes = 0;
@@ -146,7 +146,7 @@ void setColours(int colour) {
   }
   delay(5000);
   getColourValues();
-  allColourArray[colour] = colourArray;
+  finalColVal[colour] = colourArray;
   delay(RGBWait);
   Serial.println(int(colourArray)); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
   delay(5000);
@@ -156,19 +156,23 @@ int getColour() {
   int curr, next;
   getColourValues();
   Serial.println(int(colourArray)); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
+  // If no valid value return invalid
+  if (colourArray < -30 || colourArray > 450)
+    return -1;
+  
   for (int i = 0; i < NUMCOL; i++) {
-    delay(RGBWait);
-	curr = allColourArray[i];
-	next = allColourArray[i+1]
+    // If reached range of value for last colour (blue), return 
     if (i == 6)
       return i;
-	else if (colourArray > allColourArray[i] && colourArray < allColourArray[i + 1]) {
-		if (colourArray <= (allColourArray[i] + allColourArray[i + 1]) / 2)
-			return i;
-		else
-			return i + 1;
-	}
-	  
+	  curr = finalColVal[i];
+	  next = finalColVal[i+1];
+    
+	  if (colourArray > finalColVal[i] && colourArray < finalColVal[i + 1]) {
+		  if (colourArray <= (finalColVal[i] + finalColVal[i + 1]) / 2)
+			  return i;
+		  else
+			  return i + 1;
+	  }
   }
   return -1;
 }

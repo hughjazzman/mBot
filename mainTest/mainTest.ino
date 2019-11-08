@@ -1,5 +1,6 @@
 #include "MeMCore.h"
 #include "Wire.h"
+#include "Notes.h"
 
 // Done:
 // general movement - values calibrated (Wira)
@@ -28,18 +29,23 @@
 // FRNTTHRESHOLD - distance (cm) in front of mBot there is a wall to not crash into
 // SIDETHRESHOLD - voltage (V) corresponding to closeness to side walls
 // ADJTHRESHOLD - motorSpeed adjustment when detecting side walls
+// SNDTHRESHOLD - when sound value is above a threshold, do sound waypoint
+// SNDSAMPLE - no. of times sample the value obtained from sound filter 
 
+#define MOTORSPEED 100
 #define WAYPTDELAY 100
 #define SNDTHRESHOLD 500
 #define TIMEDELAY 20
-#define TIMETURN 860
-#define TIMEGRID 2200
+#define TIMETURN 86000/MOTORSPEED
+#define TIMEGRID 220000/MOTORSPEED
 #define FRNTTHRESHOLD 5 // ultra to check
 #define SIDETHRESHOLD 425 // IR to check
 #define LEFTTHRESHOLD 425 // IR to check
 #define RIGHTTHRESHOLD 325 // IR to check
-#define ADJTHRESHOLD 5
-#define MOTORSPEED 100
+#define ADJTHRESHOLD 5 // IR to check
+#define SNDTHRESHOLD 3.5
+#define SNDSAMPLE 10
+
 
 // Infrared side sensor pins
 #define IRL A1 //left
@@ -80,97 +86,7 @@
 #define BLAVAL 0
 #define NUMCOL 6
 
-/* NOTES FOR CELEBRATORY TUNE */
-//notes
-#define NOTE_B0  31
-#define NOTE_C1  33
-#define NOTE_CS1 35
-#define NOTE_D1  37
-#define NOTE_DS1 39
-#define NOTE_E1  41
-#define NOTE_F1  44
-#define NOTE_FS1 46
-#define NOTE_G1  49
-#define NOTE_GS1 52
-#define NOTE_A1  55
-#define NOTE_AS1 58
-#define NOTE_B1  62
-#define NOTE_C2  65
-#define NOTE_CS2 69
-#define NOTE_D2  73
-#define NOTE_DS2 78
-#define NOTE_E2  82
-#define NOTE_F2  87
-#define NOTE_FS2 93
-#define NOTE_G2  98
-#define NOTE_GS2 104
-#define NOTE_A2  110
-#define NOTE_AS2 117
-#define NOTE_B2  123
-#define NOTE_C3  131
-#define NOTE_CS3 139
-#define NOTE_D3  147
-#define NOTE_DS3 156
-#define NOTE_E3  165
-#define NOTE_F3  175
-#define NOTE_FS3 185
-#define NOTE_G3  196
-#define NOTE_GS3 208
-#define NOTE_A3  220
-#define NOTE_AS3 233
-#define NOTE_B3  247
-#define NOTE_C4  262
-#define NOTE_CS4 277
-#define NOTE_D4  294
-#define NOTE_DS4 311
-#define NOTE_E4  330
-#define NOTE_F4  349
-#define NOTE_FS4 370
-#define NOTE_G4  392
-#define NOTE_GS4 415
-#define NOTE_A4  440
-#define NOTE_AS4 466
-#define NOTE_B4  494
-#define NOTE_C5  523
-#define NOTE_CS5 554
-#define NOTE_D5  587
-#define NOTE_DS5 622
-#define NOTE_E5  659
-#define NOTE_F5  698
-#define NOTE_FS5 740
-#define NOTE_G5  784
-#define NOTE_GS5 831
-#define NOTE_A5  880
-#define NOTE_AS5 932
-#define NOTE_B5  988
-#define NOTE_C6  1047
-#define NOTE_CS6 1109
-#define NOTE_D6  1175
-#define NOTE_DS6 1245
-#define NOTE_E6  1319
-#define NOTE_F6  1397
-#define NOTE_FS6 1480
-#define NOTE_G6  1568
-#define NOTE_GS6 1661
-#define NOTE_A6  1760
-#define NOTE_AS6 1865
-#define NOTE_B6  1976
-#define NOTE_C7  2093
-#define NOTE_CS7 2217
-#define NOTE_D7  2349
-#define NOTE_DS7 2489
-#define NOTE_E7  2637
-#define NOTE_F7  2794
-#define NOTE_FS7 2960
-#define NOTE_G7  3136
-#define NOTE_GS7 3322
-#define NOTE_A7  3520
-#define NOTE_AS7 3729
-#define NOTE_B7  3951
-#define NOTE_C8  4186
-#define NOTE_CS8 4435
-#define NOTE_D8  4699
-#define NOTE_DS8 4978
+
 
 /*MCORE OBJECTS*/
 
@@ -230,8 +146,7 @@ int colourRes = 0;
 double frontDistance;
 
 // Used in Sound Sensor
-uint8_t highStrength;
-uint8_t lowStrength;
+double valueLow[SNDSAMPLE], valueHigh[SNDSAMPLE];
 
 // Used in Waypoint Check
 int waypoint; // true if at waypoint, false if not
@@ -455,23 +370,28 @@ void setBalance() {
 }
 
 int getColour() {
-	int curr, next;
-	getColourValues();
-	Serial.println(int(colourArray)); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
-	for (int i = 0; i < NUMCOL; i++) {
-		delay(RGBWait);
-		curr = finalColVal[i];
-		next = finalColVal[i + 1]
-			if (i == 6)
-				return i;
-			else if (colourArray > finalColVal[i] && colourArray < finalColVal[i + 1]) {
-				if (colourArray <= (finalColVal[i] + finalColVal[i + 1]) / 2)
-					return i;
-				else
-					return i + 1;
-			}
-	}
-	return -1;
+  int curr, next;
+  getColourValues();
+  Serial.println(int(colourArray)); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
+  // If no valid value return invalid
+  if (colourArray < -30 || colourArray > 450)
+    return -1;
+  
+  for (int i = 0; i < NUMCOL; i++) {
+    // If reached range of value for last colour (blue), return 
+    if (i == 6)
+      return i;
+    curr = finalColVal[i];
+    next = finalColVal[i+1];
+    
+    if (colourArray > finalColVal[i] && colourArray < finalColVal[i + 1]) {
+      if (colourArray <= (finalColVal[i] + finalColVal[i + 1]) / 2)
+        return i;
+      else
+        return i + 1;
+    }
+  }
+  return -1;
 }
 
 void getColourValues() {
@@ -497,15 +417,14 @@ int getAvgReading(int times) {
 }
 /* SOUND PEAK DETECTOR */
 
-// Function to check for sound, 100 checks to make sure correct sound frequency detected
-int soundVal(int pin) {
-  int val, temp; //  actual and temp
-  for (int i = 0; i < 100; i++) {
-    temp = analogRead(pin);
-    if (temp > val)
-      val = temp;
+// Function to check for sound, SNDSAMPLE checks to make sure correct sound frequency detected
+void soundVal() {
+  for (int i = 0; i < SNDSAMPLE; i++) {
+    valueLow[i] = analogRead(SNDLOW)/204.6;
+    delay(100);
+    valueHigh[i] = analogRead(SNDHI)/204.6;
+    delay(100);
   }
-  return val;
 }
 
 
@@ -549,11 +468,13 @@ void colourWaypoint(uint8_t colourRes) {
 }
 
 // Detects sound and moves appropriately
-void soundWaypoint(uint8_t highStrength, uint8_t lowStrength) {
-  if (highStrength > SNDTHRESHOLD)
-    turnRight();
-  else if (lowStrength > SNDTHRESHOLD)
-    turnLeft();
+void soundWaypoint() {
+  for (int i=0; i<SNDSAMPLE; i++) {
+    if (valueLow[i] > SNDTHRESHOLD)
+      turnRight();
+    else if (valueHigh[i] > SNDTHRESHOLD)
+      turnLeft();
+  }
 }
 
 // Called when finish is detected, celebratory music played
@@ -710,7 +631,6 @@ void colourTest() {
 
 // Sound decoding Test
 void soundTest() {
-  highStrength = soundVal(SNDHI); // Get high f sound strength
-  lowStrength = soundVal(SNDLOW); // Get low f sound strength
-  soundWaypoint(highStrength, lowStrength);
+  soundVal();
+  soundWaypoint();
 }
