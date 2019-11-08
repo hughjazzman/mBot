@@ -1,227 +1,131 @@
 #include "MeMCore.h"
 #include "Wire.h"
+#include "Notes.h"
 
-// Done:
 // general movement - values calibrated (Wira)
 // celebratory tune - tested, working (Shuyi)
 // colour sensor -  values calibrated (Wira)
 // IR side sensors (?) - calibrating (Walter)
-
-// Half Done:
-
-
-// Not done:
-// sound sensors - (ZiHao) - ggwp
+// sound sensors - (ZiHao)
 
 
+/*PIN NUMBERS*/
+// Infrared side sensor pins
+#define IRL A1 //left
+#define IRR A2 //right
+
+// Sound sensor pins
+#define SNDLOW  A3 //low
+#define SNDHI   A0 //high
+
+//LDR sensor pin at A6
+#define LDR A6   
+
+
+/* MOVEMENT CONSTANTS */
+// Can be changed:
+// MOTORSPEED - decides MOTORSPEED
 
 // determined by experiment:
 // WAYPTDELAY - delay before decoding waypoint after detection
 // TIMEDELAY - delay for how often position is checked
 // TIMETURN - time needed for mBot to turn 90 deg
 // TIMEGRID - time needed to travel 1 grid
-// REDARR,GREARR,YELARR,PURARR,BLUARR - RGB Values of each colour stored in arrays
-// COLOURTHRESHOLD - max deviation from calibrated colour values
 
-// to be determined by experiment:
-// SNDTHRESHOLD - voltage (V) value threshold for a sound
+#define MOTORSPEED  100
+#define WAYPTDELAY  100
+#define TIMEDELAY   20
+#define TIMETURN    75000/MOTORSPEED
+#define TIMEGRID    220000/MOTORSPEED
+
+// Movement adjustment constants
+// To be changed by Walter (just use your own code)
 // FRNTTHRESHOLD - distance (cm) in front of mBot there is a wall to not crash into
 // SIDETHRESHOLD - voltage (V) corresponding to closeness to side walls
-// ADJTHRESHOLD - motorSpeed adjustment when detecting side walls
-
-#define WAYPTDELAY 100
-#define SNDTHRESHOLD 500
-#define TIMEDELAY 20
-#define TIMETURN 1100
-#define TIMEGRID 2250
+// ADJTHRESHOLD - MOTORSPEED adjustment when detecting side walls
 #define FRNTTHRESHOLD 5
 #define SIDETHRESHOLD 0.5
-#define ADJTHRESHOLD 50
+#define ADJTHRESHOLD  50
 
-// Infrared side sensor pins
-#define IRL A1 //left
-#define IRR A2 //right
+/* SOUND CONSTANTS */
+// LOWTHRESHOLD,HIGHTHRESHOLD - when sound value is above a threshold, do sound waypoint
+// SNDSAMPLE - no. of times sample the value obtained from sound filter 
 
-// Sound sensor pins
-#define SNDLOW A3 //low
-#define SNDHI A0 //high
+#define LOWTHRESHOLD  40
+#define HIGHTHRESHOLD 10
+#define SNDSAMPLE     10
 
-/* COLOR SENSOR CONSTANTS*/
-// Define time delay before the next RGB colour turns ON to allow LDR to stabilize
+/* COLOR CONSTANTS*/
+// Adapted from CG1111 Lab
+// RGBWait - Define time delay before the next RGB colour turns ON to allow LDR to stabilize
+// LDRWait - Define time delay before taking another LDR reading
+// MAXLED - max value of LED RGB values
+
 #define RGBWait 200 //in milliseconds 
-
-// Define time delay before taking another LDR reading
 #define LDRWait 10 //in milliseconds 
+#define MAXLED  255
 
-#define LDR A6   //LDR sensor pin at A6
 
-#define MAXLED 255 // max value of LED RGB values
-
-#define COLOURTHRESHOLD 20 //max deviation from calibrated colour values
 
 // Calibrated values for each colour used in colour waypoint test
 // Values retrieved from colourcal.ino file after calibration
-// Values placed in finalColVal array to be used in logic below
-#define REDARR {193,45,42}
-#define GREARR {43, 111, 53}
-#define YELARR {266, 175, 102}
-#define PURARR {131, 130, 191}
-#define BLUARR {129, 186, 213}
+// Values placed in allColourArray array to be used in logic below
+// values determined on 08 Nov 19
+// WHIVAL, BLAVAL,GREVAL - White and Black values from the LDR (prenormalisation)
+// REDARR,GREARR,YELARR,PURARR,BLUARR - RGB Values of each colour stored in arrays (normalised)
+#define WHIVAL {375, 335, 380}
+#define BLAVAL {315, 265, 305}
+#define GREVAL {60,70,75}
+#define REDARR {185,35,35}
+#define GREARR {45, 100, 60}
+#define YELARR {255, 175, 100}
+#define PURARR {115, 110, 175}
+#define BLUARR {140, 200, 230}
 #define BLAARR {0,0,0}
-#define NUMCOL 6 // number of colours in finalColVal - black, red, green, yellow, purple, blue
-
-/* NOTES FOR CELEBRATORY TUNE */
-//notes
-#define NOTE_B0  31
-#define NOTE_C1  33
-#define NOTE_CS1 35
-#define NOTE_D1  37
-#define NOTE_DS1 39
-#define NOTE_E1  41
-#define NOTE_F1  44
-#define NOTE_FS1 46
-#define NOTE_G1  49
-#define NOTE_GS1 52
-#define NOTE_A1  55
-#define NOTE_AS1 58
-#define NOTE_B1  62
-#define NOTE_C2  65
-#define NOTE_CS2 69
-#define NOTE_D2  73
-#define NOTE_DS2 78
-#define NOTE_E2  82
-#define NOTE_F2  87
-#define NOTE_FS2 93
-#define NOTE_G2  98
-#define NOTE_GS2 104
-#define NOTE_A2  110
-#define NOTE_AS2 117
-#define NOTE_B2  123
-#define NOTE_C3  131
-#define NOTE_CS3 139
-#define NOTE_D3  147
-#define NOTE_DS3 156
-#define NOTE_E3  165
-#define NOTE_F3  175
-#define NOTE_FS3 185
-#define NOTE_G3  196
-#define NOTE_GS3 208
-#define NOTE_A3  220
-#define NOTE_AS3 233
-#define NOTE_B3  247
-#define NOTE_C4  262
-#define NOTE_CS4 277
-#define NOTE_D4  294
-#define NOTE_DS4 311
-#define NOTE_E4  330
-#define NOTE_F4  349
-#define NOTE_FS4 370
-#define NOTE_G4  392
-#define NOTE_GS4 415
-#define NOTE_A4  440
-#define NOTE_AS4 466
-#define NOTE_B4  494
-#define NOTE_C5  523
-#define NOTE_CS5 554
-#define NOTE_D5  587
-#define NOTE_DS5 622
-#define NOTE_E5  659
-#define NOTE_F5  698
-#define NOTE_FS5 740
-#define NOTE_G5  784
-#define NOTE_GS5 831
-#define NOTE_A5  880
-#define NOTE_AS5 932
-#define NOTE_B5  988
-#define NOTE_C6  1047
-#define NOTE_CS6 1109
-#define NOTE_D6  1175
-#define NOTE_DS6 1245
-#define NOTE_E6  1319
-#define NOTE_F6  1397
-#define NOTE_FS6 1480
-#define NOTE_G6  1568
-#define NOTE_GS6 1661
-#define NOTE_A6  1760
-#define NOTE_AS6 1865
-#define NOTE_B6  1976
-#define NOTE_C7  2093
-#define NOTE_CS7 2217
-#define NOTE_D7  2349
-#define NOTE_DS7 2489
-#define NOTE_E7  2637
-#define NOTE_F7  2794
-#define NOTE_FS7 2960
-#define NOTE_G7  3136
-#define NOTE_GS7 3322
-#define NOTE_A7  3520
-#define NOTE_AS7 3729
-#define NOTE_B7  3951
-#define NOTE_C8  4186
-#define NOTE_CS8 4435
-#define NOTE_D8  4699
-#define NOTE_DS8 4978
-
-/*MCORE OBJECTS*/
-
-// Motor setup (movement)
-MeDCMotor leftWheel(M1);
-MeDCMotor rightWheel(M2);
-// Line Follower (Black Strip) setup
-MeLineFollower lineFinder(PORT_2);
-// Ultrasonic Sensor setup
-MeUltrasonicSensor ultraSensor(PORT_1);
-// Color Sensor setup
-MeRGBLed led(7); // pin 7 is the RGB LED (WHY??)
-// Speaker for celebratory tune
-MeBuzzer buzzer;
+#define NUMCOL 6 // number of colours in allColourArray - black, red, green, yellow, purple, blue
 
 // IR Sensor setup done from pins in setup()
 // Sound Sensor setup done from pins in setup()
 
 /* VARIABLES */
 
-// Used in Motor
-uint8_t motorSpeed = 100;
+// Used in movement
 // no. of TIMEDELAY cycles to travel 1 grid
 int delayGrid = TIMEGRID / TIMEDELAY;
 
+// Walter to change 
 // Used in IR Sensor
 // value comes from IR sensor in voltage
 float rightDist = 0;
 float leftDist = 0;
 
 // Used in Line Follower
-int lineState; // whether its sensors detect line below in 1 or both of them
+int lineState; // to detect black strip
 
-
-/* COLOUR VARIABLES*/
-
+// Used for Colour Detection
 //placeholders for colour detected
 int red = 0;
 int green = 0;
 int blue = 0;
 
 //floats to hold colour arrays
+//allColourArray holds precalibrated RGB values
 float colourArray[] = {0, 0, 0};
-float whiteArray[] = {0, 0, 0};
-float blackArray[] = {0, 0, 0};
-float greyDiff[] = {0, 0, 0};
-//int allColourArray[5][3] = {0, 0, 0}; // red,green,yellow,purple,lightblue
-int finalColVal[6][3] = {BLAARR, REDARR,GREARR,YELARR,PURARR,BLUARR};
+float whiteArray[] = WHIVAL;
+float blackArray[] = BLAVAL;
+float greyDiff[] = GREVAL;
+int allColourArray[6][3] = {BLAARR, REDARR,GREARR,YELARR,PURARR,BLUARR};
 
 char colourStr[3][5] = {"R = ", "G = ", "B = "};
 
 //resulting colour at waypoints (calibration done before start)
 int colourRes = 0;
 
-/*ULTRASONIC SENSOR VARIABLES*/
-// Used in Ultrasonic Sensor
+// Used in Ultrasonic Sensor (Wakter)
 double frontDistance;
 
 // Used in Sound Sensor
-uint8_t highStrength;
-uint8_t lowStrength;
+double valueLow[SNDSAMPLE], valueHigh[SNDSAMPLE];
 
 // Used in Waypoint Check
 int waypoint; // true if at waypoint, false if not
@@ -233,7 +137,6 @@ void setup() {
   pinMode(IRR, INPUT);
   pinMode(SNDLOW, INPUT);
   pinMode(SNDHI, INPUT);
-  //pinMode(13, OUTPUT); // RGBLed
   Serial.begin(9600);
 
   //colour calibration first (black and white)
@@ -241,51 +144,16 @@ void setup() {
 }
 
 void loop() {
-
-  /* To test Movement*/
-
-  //forward();
-  //turnRight();
-  //turnLeft();
-  //uTurn();
-  //doubleRight();
-  //doubleLeft();
-  //forwardGrid();
-
-  
   // put your main code here, to run repeatedly:
-  frontDistance = ultraSensor.distanceCm(); // Distance to wall in front
   lineState = lineFinder.readSensors(); // Detection black strip below
   waypoint = checkWaypoint(lineState); // Presence of black strip
-  
-  // Side wall "distances" (in V)
+
+  // (Walter)
+  // Distance to wall in front
+  frontDistance = ultraSensor.distanceCm(); 
+  // Side wall "distances" (in V) 
   rightDist = analogRead(IRR);
   leftDist = analogRead(IRL);
-
-
-  /* To test LineFinder*/
-
-  /*
-    
-    if (lineState != S1_OUT_S2_OUT){
-      stopMove();
-      Serial.println("stop");
-      turnRight();
-    }
-    else {
-      forward();
-      Serial.println("forward");
-    }
-  */
-  /*To test IR sensor*/
-
-  /*To test colour detection */
-  /*
-  colourRes = getColour();
-  colourWaypoint(colourRes);
-  */
-  /* To test sound */
-
 
   /* Actual logic here */
   // If waypoint detected, decode it
@@ -294,21 +162,27 @@ void loop() {
   	delay(WAYPTDELAY); // Delay before start
   	colourRes = getColour(); // Get preset colour result
     printColour(colourRes);
-  	highStrength = soundVal(SNDHI); // Get high f sound strength
-  	lowStrength = soundVal(SNDLOW); // Get low f sound strength
+  	soundVal();
 
     // Waypoint decoding
+    // will only finish this loop if a colour is detected
+    while (colourRes == -1) {
+      colourRes = getColour(); // Get preset colour result
+      printColour(colourRes);
+    }
+    
     // If color waypoint
     if (colourRes > 0)
   	  colourWaypoint(colourRes);
     // If sound waypoint
-    //else if (highStrength > SNDTHRESHOLD || lowStrength > SNDTHRESHOLD)
-  	  //soundWaypoint(highStrength, lowStrength);
+    else if (isSound())
+  	  soundWaypoint(isSound());
     // If finished
     else
       celebratory_music();
   }
 
+  // Walter
   // If no waypoint
   // Failsafe if waypoint not detected and wall in front
   if (checkFront(frontDistance)){
@@ -345,14 +219,15 @@ void loop() {
 // checkFront
 
 void forward() {
-  leftWheel.run(-motorSpeed);
-  rightWheel.run(motorSpeed);
+  leftWheel.run(-MOTORSPEED);
+  rightWheel.run(MOTORSPEED);
   delay(TIMEDELAY);
 }
 
 void stopMove() {
-  leftWheel.stop();
   rightWheel.stop();
+  leftWheel.stop();
+  delay(TIMEDELAY*10);
 }
 
 void forwardGrid() {
@@ -363,15 +238,15 @@ void forwardGrid() {
 }
 
 void turnRight() {
-  leftWheel.run(-motorSpeed);
-  rightWheel.run(-motorSpeed);
+  leftWheel.run(-MOTORSPEED);
+  rightWheel.run(-MOTORSPEED);
   delay(TIMETURN);
   stopMove();
 }
 
 void turnLeft() {
-  leftWheel.run(motorSpeed);
-  rightWheel.run(motorSpeed);
+  leftWheel.run(MOTORSPEED);
+  rightWheel.run(MOTORSPEED);
   delay(TIMETURN);
   stopMove();
 }
@@ -393,6 +268,7 @@ void uTurn() {
   turnRight();
 }
 
+// Walter
 // Readjusting algorithms from wall detection
 void reAdjust(float rightDist, float leftDist) {
   if (rightDist < SIDETHRESHOLD) reAdjustLeft();
@@ -400,14 +276,14 @@ void reAdjust(float rightDist, float leftDist) {
 }
 
 void reAdjustRight() {
-  leftWheel.run(-motorSpeed - ADJTHRESHOLD);
-  rightWheel.run(motorSpeed);
+  leftWheel.run(-MOTORSPEED - ADJTHRESHOLD);
+  rightWheel.run(MOTORSPEED);
   delay(TIMEDELAY);
 }
 
 void reAdjustLeft() {
-  leftWheel.run(-motorSpeed);
-  rightWheel.run(motorSpeed + ADJTHRESHOLD);
+  leftWheel.run(-MOTORSPEED);
+  rightWheel.run(MOTORSPEED + ADJTHRESHOLD);
   delay(TIMEDELAY);
 }
 
@@ -427,7 +303,6 @@ int checkFront(int frontDistance){
 // getColour - get colour from the default colours
 // getColourValues - gets colour values of a given sample
 // getAvgReading - gets direct reading from LDR
-// printColour - prints detected colour for troubleshooting
 
 void setBalance() {
   //set white balance
@@ -450,6 +325,7 @@ void setBalance() {
   }
   led.setColor(0, 0, 0);
   led.show();
+  
   //done scanning white, time for the black sample.
   //set black balance
   Serial.println("Put Black Sample For Calibration ...");
@@ -478,28 +354,33 @@ void setBalance() {
   delay(5000);
 }
 
-
 int getColour() {
-  // temp to make sure at least 1 colour is detected at a waypoint - black, red, green, yellow, purple, light blue
-  // else loop till a colour is found
-  int temp=-1;
-  while (temp < 0) {
-    for (int i = 0; i < NUMCOL; i++) {
-      for (int j = 0; j < 3; j++) {
-        getColourValues(j);
-        delay(RGBWait);
-        Serial.println(int(colourArray[j])); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
-        
-        if (abs(finalColVal[i][j] - colourArray[j]) > COLOURTHRESHOLD) {
-          break;
-        } else if (j == 2) {
-          temp = i;
-          return i;
-        }
-      }
+  int idx=-1,min_dist=10000;
+  long long curr_dist;
+
+  // Gets RGB values for current colour
+  for (int x=0; x<3; x++) {
+    getColourValues(x);
+    Serial.println(colourArray[x]);
+  }
+
+  // Loop finds colour with smallest sum of square values difference
+  for (int i = 0; i < 6; i++) {
+    curr_dist = 0;
+    // Takes the sum of square values of difference between current colour detected
+    // and reference values saved in allColourArray
+    for (int j = 0; j < 3; j++) {
+      curr_dist += (allColourArray[i][j]-colourArray[j])*(allColourArray[i][j]-colourArray[j]);
+    }
+    if (curr_dist < min_dist && curr_dist > 0) {
+      // Sets colour index to be returned here
+      idx = i;
+      min_dist = curr_dist;
     }
   }
+  return idx;
 }
+
 
 int getColourValues(int rgb) {
   Serial.print(colourStr[rgb]);
@@ -521,7 +402,6 @@ int getColourValues(int rgb) {
 }
 
 
-
 int getAvgReading(int times) {
   //find the average reading for the requested number of times of scanning LDR
   int reading;
@@ -536,65 +416,46 @@ int getAvgReading(int times) {
   return total / times;
 }
 
-void printColour(int colourRes) {
-  String s;
-  Serial.print("Colour detected: ");
-  switch (colourRes){
-    case 0:
-      s="black";
-      break;
-    case 1:
-      s="red";
-      break;
-    case 2:
-      s="green";
-      break;
-    case 3:
-      s="yellow";
-      break;
-    case 4:
-      s="purple";
-      break;
-    case 5:
-      s="light blue";
-      break;
-    default:
-      s="not found";
-      break;
-  }
-  Serial.println(s);
-}
-
 /* SOUND PEAK DETECTOR */
+// soundVal - Function to check for sound, SNDSAMPLE checks to make sure correct sound frequency detected
+// isSound - tells which sound is being played, if any
 
-// Function to check for sound, 100 checks to make sure correct sound frequency detected
-int soundVal(int pin) {
-  int val, temp; //  actual and temp
-  for (int i = 0; i < 100; i++) {
-    temp = analogRead(pin);
-    if (temp > val)
-      val = temp;
+void soundVal() {
+  for (int i = 0; i < SNDSAMPLE; i++) {
+    valueLow[i] = analogRead(SNDLOW);
+    delay(100);
+    valueHigh[i] = analogRead(SNDHI);
+    delay(100);
   }
-  return val;
+}
+
+// return value 1 - low frequency sound
+// return value 2 - high frequency sound
+int isSound() {
+  for (int i=0; i<SNDSAMPLE; i++) {
+    if (valueLow[i] > LOWTHRESHOLD) {
+      return 1;
+    }
+    else if (valueHigh[i] > HIGHTHRESHOLD) {
+      return 2;
+    }
+  }
+  return 0;
 }
 
 
-/* WAYPOINT CHECK*/
+/* WAYPOINT CHECK & FUNCTIONS*/
 // Function for waypoint checking using Line Sensor
-// returns true if black strip
-// returns false if no black strip
 int checkWaypoint(int lineState) {
   // lineState values (S1 and S2 are the 2 sensors - in or out the black line):
-  
   // S1_IN_S2_IN
   // S1_IN_S2_OUT
   // S1_OUT_S2_IN
   // S1_OUT_S2_OUT
-  // To decide which to use
+  // whenever 1 sensor detected this returns true
   return lineState != S1_OUT_S2_OUT;
 }
 
-/* WAYPOINT FUNCTIONS*/
 // Detects colour and moves appropriately
 void colourWaypoint(uint8_t colourRes) {
   switch (colourRes) {
@@ -619,89 +480,9 @@ void colourWaypoint(uint8_t colourRes) {
 }
 
 // Detects sound and moves appropriately
-void soundWaypoint(uint8_t highStrength, uint8_t lowStrength) {
-  if (highStrength > SNDTHRESHOLD)
-    turnRight();
-  else if (lowStrength > SNDTHRESHOLD)
+void soundWaypoint(int isSound) {
+  if (isSound == 1)
     turnLeft();
-}
-
-// Called when finish is detected, celebratory music played
-// play mario theme song
-// melody sheet by: Dipto Pratyaksa
-// buzzer seems to be pin8
-void celebratory_music(){
- int melody[] = {
-    NOTE_E7, NOTE_E7, 0, NOTE_E7, 
-    0, NOTE_C7, NOTE_E7, 0,
-    NOTE_G7, 0, 0,  0,
-    NOTE_G6, 0, 0, 0, 
-
-    NOTE_C7, 0, 0, NOTE_G6, 
-    0, 0, NOTE_E6, 0, 
-    0, NOTE_A6, 0, NOTE_B6, 
-    0, NOTE_AS6, NOTE_A6, 0, 
-
-    NOTE_G6, NOTE_E7, NOTE_G7, 
-    NOTE_A7, 0, NOTE_F7, NOTE_G7, 
-    0, NOTE_E7, 0,NOTE_C7, 
-    NOTE_D7, NOTE_B6, 0, 0,
-
-    NOTE_C7, 0, 0, NOTE_G6, 
-    0, 0, NOTE_E6, 0, 
-    0, NOTE_A6, 0, NOTE_B6, 
-    0, NOTE_AS6, NOTE_A6, 0, 
-
-    NOTE_G6, NOTE_E7, NOTE_G7, 
-    NOTE_A7, 0, NOTE_F7, NOTE_G7, 
-    0, NOTE_E7, 0,NOTE_C7, 
-    NOTE_D7, NOTE_B6, 0, 0
- };
- 
- int noteDurations[] = {
-    12, 12, 12, 12, 
-    12, 12, 12, 12,
-    12, 12, 12, 12,
-    12, 12, 12, 12, 
-
-    12, 12, 12, 12,
-    12, 12, 12, 12, 
-    12, 12, 12, 12, 
-    12, 12, 12, 12, 
-
-    9, 9, 9,
-    12, 12, 12, 12,
-    12, 12, 12, 12,
-    12, 12, 12, 12,
-  
-    12, 12, 12, 12,
-    12, 12, 12, 12,
-    12, 12, 12, 12,
-    12, 12, 12, 12,
-
-    9, 9, 9,
-    12, 12, 12, 12,
-    12, 12, 12, 12,
-    12, 12, 12, 12,
- };
-
- // loop until all values in the melody array have been used
- // ie. when i reaches size of melody array
- int size = sizeof(melody)/sizeof(int);
- for (int i = 0; i < size; i++) {
-    
-    // to calculate the note duration, take one second
-    // divided by the note type.
-    // e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc. (Assuming 1 beat per sec)
-    int noteDuration = 1000/noteDurations[i];
-    buzzer.tone(8, melody[i], noteDuration);
-    
-    // to distinguish the notes, set a minimum time between them.
-    // the note's duration + 30% seems to work well:
-    int pauseBetweenNotes = noteDuration * 1.30;
-    delay(pauseBetweenNotes);
-    
-    // stop the tone playing:
-    buzzer.noTone(8);
- }
+  else if (isSound == 2)
+    turnRight();
 }

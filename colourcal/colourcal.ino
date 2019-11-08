@@ -2,12 +2,12 @@
 /* TO CHANGE allColourArray in getColour() in main.ino to finalColVal 
 after finding values from colourcal.ino */
 
-// values determined on 05 Nov 19
-#define REDARR {126,60,75}
-#define GREARR {77, 113, 86}
-#define YELARR {209, 158, 129}
-#define PURARR {131, 124, 164}
-#define BLUARR {138, 163, 177}
+// values determined on 08 Nov 19
+#define REDARR {185,35,35}
+#define GREARR {45, 100, 60}
+#define YELARR {255, 175, 100}
+#define PURARR {115, 110, 175}
+#define BLUARR {140, 200, 230}
 #define BLAARR {0,0,0}
 
 #include <MeRGBLed.h>
@@ -40,9 +40,9 @@ int blue = 0;
 
 //floats to hold colour arrays
 float colourArray[] = {0, 0, 0};
-float whiteArray[] = {0, 0, 0};
-float blackArray[] = {0, 0, 0};
-float greyDiff[] = {0, 0, 0};
+float whiteArray[] = {375, 335, 380};
+float blackArray[] = {315, 265, 305};
+float greyDiff[] = {60, 70, 75};
 float allColourArray[6][3] = {BLAARR, REDARR, GREARR, YELARR, PURARR, BLUARR}; // red,green,yellow,purple,lightblue
 
 char colourStr[3][5] = {"R = ", "G = ", "B = "};
@@ -122,6 +122,7 @@ void setBalance() {
     led.show();
     delay(RGBWait);
     whiteArray[i] = getAvgReading(5);
+    Serial.println(whiteArray[i]);
     delay(RGBWait);
   }
   led.setColor(0, 0, 0);
@@ -142,6 +143,7 @@ void setBalance() {
     led.show();
     delay(RGBWait);
     blackArray[i] = getAvgReading(5);
+    Serial.println(blackArray[i]);
     delay(RGBWait);
     //the differnce between the maximum and the minimum gives the range
     greyDiff[i] = whiteArray[i] - blackArray[i];
@@ -176,18 +178,29 @@ void setColours(int colour) {
 }
 
 int getColour() {
+  int idx=-1,min_dist=10000;
+  long long curr_dist;
+
+  // Gets RGB values for current colour
+  for (int x=0; x<3; x++) {
+    getColourValues(x);
+    Serial.println(colourArray[x]);
+  }
+
+  // Loop finds colour with smallest sum of square values difference
   for (int i = 0; i < 6; i++) {
+    curr_dist = 0;
+    // Takes the sum of square values of difference between current colour detected
+    // and reference values saved in allColourArray
     for (int j = 0; j < 3; j++) {
-      getColourValues(j);
-      delay(RGBWait);
-      Serial.println(int(colourArray[j])); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
-      if (abs(allColourArray[i][j] - colourArray[j]) > COLOURTHRESHOLD)
-        break;
-      else if (j == 2)
-        return i;
+      curr_dist += (allColourArray[i][j]-colourArray[j])*(allColourArray[i][j]-colourArray[j]);
+    }
+    if (curr_dist < min_dist && curr_dist > 0) {
+      idx = i;
+      min_dist = curr_dist;
     }
   }
-  return -1;
+  return idx;
 }
 
 int getColourValues(int rgb) {
