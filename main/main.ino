@@ -1,3 +1,5 @@
+#include <Wire.h>
+
 #include "MeMCore.h"
 #include "Wire.h"
 #include <MeRGBLed.h>
@@ -21,10 +23,12 @@ MeSoundSensor           lowSound(PORT_5);
 #define TIMEDELAY       500     // delay b4 recheck position
 
 // Movement
+#define LEFT_BIAS       0 //128
 #define MOTORSPEED      100
 #define TIMETURN        1100    // time for 90deg turn
 #define TIMEGRID        2000    // time to travel 1 grid
-#define DX              (255/2) // max correction to mvmt
+#define K_ERR           0.5
+#define K_DIST          (255/2) // max correction to mvmt
 #define DELAYGRID       (TIMEGRID / TIMEDELAY)
 
 // Sound
@@ -32,7 +36,7 @@ MeSoundSensor           lowSound(PORT_5);
 
 // Calibration
 #define CALLIBRATE_SEC  3       // delay b4 calibration
-#define CALIBRATE_NO    5       // no of measurements
+#define CALIBRATE_NO    10       // no of measurements
 #define CALIBRATE_DELAY 100     // delay btw measurements. IMPT!
 
 
@@ -40,7 +44,8 @@ MeSoundSensor           lowSound(PORT_5);
 /********** Global Variables **********/
 bool busy = true;
 int IR_VALUES[2][2] = {0}; // left-right, minmax
-
+ll error = 0;
+  
 
 
 /********** Main Program **********/
@@ -55,9 +60,8 @@ void loop() {
   if (busy) return;
 
   // double frontDistance = ultraSensor.distanceCm();
-  int lineState = lineFinder.readSensors();
 
-  if (lineState != S1_IN_S2_IN) { // both sensors not in black line
+  if (lineFinder.readSensors() != S1_IN_S2_IN) { // both sensors not in black line
     // Detect Left-Right Proximity
     moveForward();
     return;
@@ -70,7 +74,7 @@ void loop() {
   uint16_t colorvalues[5];
   getColours(colorvalues);
   if (colorvalues[0] != BLACK) { // is color challenge (not black)
-//    colorWaypoint(colorvalues[0]);
+    // colorWaypoint(colorvalues[0]);
     return;
   }
 
@@ -78,20 +82,20 @@ void loop() {
   uint8_t highStrength = highSound.strength();
   uint8_t lowStrength = lowSound.strength();
   if (highStrength > SNDTHRESHOLD || lowStrength > SNDTHRESHOLD) {
-//    soundWaypoint(highStrength, lowStrength);
+    // soundWaypoint(highStrength, lowStrength);
     return;
   }
 
-//  finishWaypoint();
+  // finishWaypoint();
 }
 
 // DC Motor: Movement
 void moveForward() {
   for (int i = 0; i < DELAYGRID; ++i) {
     int dx = IR();
-    int max = MOTORSPEED + (dx > 0 ? dx : -dx);
-    leftWheel.run((ll)(-MOTORSPEED - dx) * MOTORSPEED / max);
-    rightWheel.run((ll)(MOTORSPEED - dx) * MOTORSPEED / max);
+    int maxx = MOTORSPEED + (dx >= 0 ? dx : -dx);
+    leftWheel.run((ll)(-MOTORSPEED + dx) * MOTORSPEED / maxx);
+    rightWheel.run((ll)(MOTORSPEED + dx) * MOTORSPEED / maxx);
     delay(TIMEDELAY);
     leftWheel.stop();
     rightWheel.stop();
@@ -102,13 +106,21 @@ void moveForward() {
 int IR() {
   // Position
   // If left > right, going towards right, turn left
-  int left = norm(analogRead(LEFTIR_PIN), IR_VALUES[0]);
-  int right = norm(analogRead(RIGHTIR_PIN), IR_VALUES[1]);
+  int left = analogRead(LEFTIR_PIN), right = analogRead(RIGHTIR_PIN);
+  left = norm(left, IR_VALUES[0]) - LEFT_BIAS;
+  right = norm(right, IR_VALUES[1]);
+  if (left > 877) left = 1; // so we know it's not 0
+  if (right > 877) right = 1;
 
   Serial.print("LEFT: "); Serial.print(left);
   Serial.print("\tRIGHT: "); Serial.println(right);
 
-  return (ll)(left - right) * DX / 1023;
+  ll curr = (ll)(left - right) * K_DIST / 1023;
+//  return curr;
+  
+  curr -= error;
+  error += curr;
+  return curr + error * K_ERR;
 }
 
 // Color Sensor: Challenge
@@ -123,8 +135,8 @@ void getColours(uint16_t colorvalues[]) {
 void colorPrint() {
   uint16_t colorvalues[5];
   getColours(colorvalues);
-  long colorcode = colorsensor.ReturnColorCode();//RGB24code
-  uint8_t grayscale = colorsensor.ReturnGrayscale();
+  long colorcode = colorSensor.ReturnColorCode();//RGB24code
+  uint8_t grayscale = colorSensor.ReturnGrayscale();
 
   Serial.print("R:"); Serial.print(colorvalues[1]); Serial.print("\t");
   Serial.print("G:"); Serial.print(colorvalues[2]); Serial.print("\t");
@@ -209,6 +221,10 @@ void calibrateIR() {
   Serial.println("done.\n");
 
   // Save range
+//  Serial.println(IR_VALUES[0][0]);
+//  Serial.println(IR_VALUES[0][1]);
+//  Serial.println(IR_VALUES[1][0]);
+//  Serial.println(IR_VALUES[1][1]);
   IR_VALUES[0][1] -= IR_VALUES[0][0]; // left range
   IR_VALUES[1][1] -= IR_VALUES[1][0]; // right range
 }
