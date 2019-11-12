@@ -4,7 +4,7 @@ CG1111
 ## Feature List
 General Movement
 - [x] IR Sensor (wk 9-2) – detect walls at side 
-- [ ] Built-in Ultrasonic Sensor (wk 10-1) – detect wall in front
+- [x] Built-in Ultrasonic Sensor (wk 10-1) – detect wall in front
 - [x] Programming – forward movement and readjustment
 - [x] Programming - IR Callibration
 - [ ] Programming - concurrent functions with millis()
@@ -21,14 +21,14 @@ Finish
 Overall Algorithm:
 
 ## Algorithm
-Loop: Check for waypoint
-	Yes: Check for colour
-		Yes: Move appropriately
-		No: Check for sound
-			Yes: Move apppropriately
-			No: Finish
-	No: Check for front wall (failsafe)
-		Yes: Check side wall - right wall present?
-			Yes: Turn left
-			No: Turn right
-		No: move forward
+* Loop: Check for waypoint
+	* Yes: Check for colour
+		* Yes: Move appropriately
+		* No: Check for sound
+			* Yes: Move apppropriately
+			* No: Finish
+	* No: Check for front wall (failsafe)
+		* Yes: Check side wall - right wall present?
+			* Yes: Turn left
+			* No: Turn right
+		* No: move forward

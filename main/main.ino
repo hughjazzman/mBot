@@ -152,23 +152,6 @@ void moveForward() {
     delay(TIMEDELAY);
   }
   stopMove(0);
-
-  // if (checkFront(frontDistance)){
-  //   if (rightDist > leftDist){
-  //     turnRight();
-  //   }
-  //   else {
-  //     turnLeft();
-  //   }
-  // }
-  // // Readjust if too close to right or left wall
-  // else if (tooClose(rightDist, leftDist)) {
-  //   reAdjust(rightDist, leftDist);
-  // } 
-  // // Default movement: forward 
-  // else {
-  //   forward();
-  // }
 }
 
 void forward() {
@@ -216,9 +199,13 @@ void uTurn() {
 
 
 /********** Sensors **********/
-// IR Sensor: Proximity
 int getDist() {
-  // Position
+  // Ultrasonic Sensor: Front Proximity
+  // Detect sides only when near walls, since IR unreliable
+  // Must account for waypoint distances
+  if (ultraSensor.distanceCm() > FRONT_BIAS) return 0;
+
+  // IR Sensor: Side Proximity
   // If left > right, too close to right, turn left
   int left = analogRead(LEFTIR_PIN), right = analogRead(RIGHTIR_PIN);
   left = norm(left, IR_VALUES[0]) - LEFT_BIAS;
@@ -238,6 +225,23 @@ int getDist() {
   curr -= error;
   error += curr;
   return curr + error * K_ERR;
+
+  // if (checkFront(frontDistance)){
+  //   if (rightDist > leftDist){
+  //     turnRight();
+  //   }
+  //   else {
+  //     turnLeft();
+  //   }
+  // }
+  // // Readjust if too close to right or left wall
+  // else if (tooClose(rightDist, leftDist)) {
+  //   reAdjust(rightDist, leftDist);
+  // } 
+  // // Default movement: forward 
+  // else {
+  //   forward();
+  // }
 }
 
 // Sound Sensor: Return first hz
