@@ -34,11 +34,11 @@ MeBuzzer                buzzer;
 #define K_ERR           0.5
 #define K_DIST          (255/2)                 // max correction to mvmt
 #define LEFT_BIAS       0                       // 128
-#define FRONT_BIAS      5                       // todo
+#define FRONT_BIAS      40                      // cm
 
 // Sound
-#define K_SNDLOW        40
-#define K_SNDHI         10
+#define K_SNDLOW        30                     // 80
+#define K_SNDHI         70                     // 75
 
 // Color
 // retrieved from colourcal.ino file after calibration
@@ -87,8 +87,8 @@ void setup() {
   pinMode(SNDHI_PIN, INPUT);
   Serial.begin(9600);
 
-  calibrateWB();
-  calibrateIR();
+ calibrateWB();
+ calibrateIR();
   // colorSensor.SensorInit();
   busy = false;
 }
@@ -96,6 +96,12 @@ void setup() {
 void stopMove(int i);
 void loop() {
   if (busy) return;
+
+  // double dist = ultraSensor.distanceCm();
+  // Serial.println(dist);
+  // Serial.print("LOW: "); Serial.print(analogRead(SNDLOW_PIN)); //delay(MIC_WAIT);
+  // Serial.print(" HIGH: "); Serial.println(analogRead(SNDHI_PIN)); delay(MIC_WAIT);
+  // return;
 
   // double frontDistance = ultraSensor.distanceCm();
   if (lineFinder.readSensors() != S1_IN_S2_IN) { // both sensors not in black line
