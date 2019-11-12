@@ -37,17 +37,17 @@ MeBuzzer                buzzer;
 #define FRONT_BIAS      40                      // cm
 
 // Sound
-#define K_SNDLOW        40                     // 80
+#define K_SNDLOW        35                     // 80
 #define K_SNDHI         10                     // 75
 
 // Color
 // retrieved from colourcal.ino file after calibration
 #define MIN_DIST        5000                   // 10000
 #define WHI_VAL         {375, 335, 380}         // from LDR b4 normalisation
-#define BLA_VAL         {318, 276, 313}         // {315, 265, 305}
-#define GRE_VAL         {102, 93, 109}          // {60,70,75}
-//#define BLA_VAL         {315, 265, 305}
-//#define GRE_VAL         {60,70,75}
+//#define BLA_VAL         {318, 276, 313}         // {315, 265, 305}
+//#define GRE_VAL         {102, 93, 109}          // {60,70,75}
+#define BLA_VAL         {255, 217, 243}
+#define GRE_VAL         {116, 108, 130}
 
 #define RED_ARR         {185,35,35}             // normalised rgb vals
 #define GRE_ARR         {45, 100, 60}
@@ -89,8 +89,8 @@ void setup() {
   pinMode(SNDHI_PIN, INPUT);
   Serial.begin(9600);
 
-// calibrateWB();
-//  calibrateIR();
+//   calibrateWB();
+  // calibrateIR();
   // colorSensor.SensorInit();
   busy = false;
 }
@@ -103,10 +103,10 @@ void loop() {
   // Serial.println(dist);
 //   Serial.print("LOW: "); Serial.print(analogRead(SNDLOW_PIN)); //delay(MIC_WAIT);
 //   Serial.print(" HIGH: "); Serial.println(analogRead(SNDHI_PIN)); delay(MIC_WAIT);
-  printColour(getColour());
+//  printColour(getColour());
 //  Serial.println(getDist());
 //  delay(100);
-  return;
+//  return;
 
   // double frontDistance = ultraSensor.distanceCm();
   if (lineFinder.readSensors() != S1_IN_S2_IN) { // both sensors not in black line
@@ -212,35 +212,45 @@ void uTurn() {
 
 /********** Sensors **********/
 int getDist() {
-  // Ultrasonic Sensor: Front Proximity
-  // Detect sides only when near walls, since IR unreliable
-  // Must account for waypoint distances
-  if (ultraSensor.distanceCm() > FRONT_BIAS) return 0;
+  // // METHOD 1
+  // // Sweep left/right to find avail space
+  // if (ultraSensor.distanceCm() > FRONT_BIAS) return 0;
 
-  // Jiggle and see left/right better
-  stopMove(0); busy = true;
-  unsigned long time = millis() + TIMETURN / 4;
+  // // Jiggle and see left/right better
+  // stopMove(0); busy = true;
+  // unsigned long time = millis() + TIMETURN / 4;
 
-  // Jiggle Right
-  while (millis() < time || ultraSensor.distanceCm() < FRONT_BIAS) {
-    leftWheel.run(-MOTORSPEED); rightWheel.run(MOTORSPEED);
-  }
-  stopMove(0);
-  if (ultraSensor.distanceCm() > FRONT_BIAS) {
-    busy = false; return 0;
-  }
+  // // Jiggle Right
+  // while (millis() < time || ultraSensor.distanceCm() < FRONT_BIAS) {
+  //   leftWheel.run(-MOTORSPEED); rightWheel.run(MOTORSPEED);
+  // }
+  // stopMove(0);
+  // if (ultraSensor.distanceCm() > FRONT_BIAS) {
+  //   busy = false; return 0;
+  // }
 
-  time = millis() + TIMETURN / 2;
-  // Jiggle Right
-  while (millis() < time || ultraSensor.distanceCm() < FRONT_BIAS) {
-    leftWheel.run(MOTORSPEED); rightWheel.run(-MOTORSPEED);
-  };
-  stopMove(0); busy = false;
-  return 0;
+  // time = millis() + TIMETURN / 2;
+  // // Jiggle Right
+  // while (millis() < time || ultraSensor.distanceCm() < FRONT_BIAS) {
+  //   leftWheel.run(MOTORSPEED); rightWheel.run(-MOTORSPEED);
+  // };
+  // stopMove(0); busy = false;
+  // return 0;
  
+  // METHOD 2
+  // Take raw value and threshold
+  int ir = analogRead(LEFTIR_PIN);
+  if (ir < 100) { // turn right
+    return (100 - ir) * K_DIST / 100;
+  }
+  else if (ir = analogRead(RIGHTIR_PIN), ir < 100) { // turn left
+    return (ir - 100) * K_DIST / 100;
+  }
+  return 0;
 
-  // IR Sensor: Side Proximity
-  // If left > right, too close to right, turn left
+
+  // METHOD 3
+  // Calibrate, normalise and bias
   int left = analogRead(LEFTIR_PIN), right = analogRead(RIGHTIR_PIN);
   left = norm(left, IR_VALUES[0]) - LEFT_BIAS;
   right = norm(right, IR_VALUES[1]);
@@ -259,23 +269,6 @@ int getDist() {
   curr -= error;
   error += curr;
   return curr + error * K_ERR;
-
-  // if (checkFront(frontDistance)){
-  //   if (rightDist > leftDist){
-  //     turnRight();
-  //   }
-  //   else {
-  //     turnLeft();
-  //   }
-  // }
-  // // Readjust if too close to right or left wall
-  // else if (tooClose(rightDist, leftDist)) {
-  //   reAdjust(rightDist, leftDist);
-  // } 
-  // // Default movement: forward 
-  // else {
-  //   forward();
-  // }
 }
 
 // Sound Sensor: Return first hz
