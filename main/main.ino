@@ -27,7 +27,7 @@ MeBuzzer                buzzer;
 #define TIMEDELAY       20                      // delay b4 recheck position
 
 // Movement
-#define MOTORSPEED      100
+#define MOTORSPEED      150
 #define TIMETURN        (75000/MOTORSPEED)      // time for 90deg turn
 #define TIMEGRID        (220000/MOTORSPEED)     // time to travel 1 grid
 #define DELAYGRID       (TIMEGRID / TIMEDELAY)
@@ -69,13 +69,12 @@ MeBuzzer                buzzer;
 /********** Global Variables **********/
 bool busy = true;
 
-int IR_VALUES[2][2] = {0}; // left-right, minmax
+int IR_VALUES[2][2] = {{0,0},{0,0}}; // left-right, minmax
 ll error = 0;
 
-int whiteArray[] = WHI_VAL;
 int blackArray[] = BLA_VAL;
 int greyDiff[] = GRE_VAL;
-static int allColourArray[6][3] = {BLA_ARR, RED_ARR,GRE_ARR,YEL_ARR,PUR_ARR,BLU_ARR};
+static int allColourArray[6][3] = {BLA_ARR,RED_ARR,GRE_ARR,YEL_ARR,PUR_ARR,BLU_ARR};
   
 
 
@@ -147,7 +146,7 @@ void stopMove(int i = 10) {
 }
 
 void moveForward() {
-  for (int i = 0; i < DELAYGRID; ++i) {
+  // for (int i = 0; i < DELAYGRID; ++i) {
     int dx = getDist();
     
     // Normalise to MOTORSPEED
@@ -156,7 +155,7 @@ void moveForward() {
     rightWheel.run((ll)(MOTORSPEED + dx) * MOTORSPEED / maxx);
     
     delay(TIMEDELAY);
-  }
+  // }
   stopMove(0);
 }
 
@@ -274,7 +273,7 @@ int getColour() { // returns index of best color
     ); led.show();
     delay(RGB_WAIT);
 
-    for (int i = 0; i < CALIBRATE_NO; ++i) {
+    for (int j = 0; j < CALIBRATE_NO; ++j) {
       colourArray[i] += analogRead(LDR_PIN);
       delay(LDR_WAIT);
     }
@@ -388,6 +387,7 @@ void calibrateIR() {
   for (int i = CALLIBRATE_SEC; i > 0; --i) {
     Serial.print(i); Serial.print(".. "); delay(1000);
   }
+  IR_VALUES[0][0] = IR_VALUES[1][0] = 0;
   for (int i = 0; i < CALIBRATE_NO; ++i) {
     IR_VALUES[0][0] += analogRead(LEFTIR_PIN);
     IR_VALUES[1][0] += analogRead(RIGHTIR_PIN);
@@ -402,6 +402,7 @@ void calibrateIR() {
   for (int i = CALLIBRATE_SEC; i > 0; --i) {
     Serial.print(i); Serial.print(".. "); delay(1000);
   }
+  IR_VALUES[0][1] = IR_VALUES[1][1] = 0;
   for (int i = 0; i < CALIBRATE_NO; ++i) {
     IR_VALUES[0][1] += analogRead(LEFTIR_PIN);
     IR_VALUES[1][1] += analogRead(RIGHTIR_PIN);
@@ -418,10 +419,18 @@ void calibrateIR() {
   // Serial.println(IR_VALUES[1][1]);
   IR_VALUES[0][1] -= IR_VALUES[0][0]; // left range
   IR_VALUES[1][1] -= IR_VALUES[1][0]; // right range
+
+  // Output calibrated
+  Serial.print("int IR_VALUES[2][2] = {{");
+  Serial.print(IR_VALUES[0][0]); Seria.print(",");
+  Serial.print(IR_VALUES[0][1]); Seria.print("},{");
+  Serial.print(IR_VALUES[1][0]); Seria.print(",");
+  Serial.print(IR_VALUES[1][1]); Seria.println("}};");
 }
 
 void calibrateWB() {
   Serial.println("===== CALIBRATING COLOR SENSORS (TOP) =====");
+  int whiteArray[3] = {0};
 
   // Max values
   Serial.print("Put WHITE sample. Calibrating MAX in ");
@@ -436,8 +445,7 @@ void calibrateWB() {
     ); led.show();
     delay(RGB_WAIT);
 
-    whiteArray[i] = 0;
-    for (int i = 0; i < CALIBRATE_NO; ++i) {
+    for (int j = 0; j < CALIBRATE_NO; ++j) {
       whiteArray[i] += analogRead(LDR_PIN);
       delay(LDR_WAIT);
     }
@@ -445,7 +453,6 @@ void calibrateWB() {
   }
   led.setColor(0,0,0); led.show();
   Serial.println("done.");
-
 
   // Min values
   Serial.print("Put BLACK sample. Calibrating MIN in ");
@@ -461,7 +468,7 @@ void calibrateWB() {
     delay(RGB_WAIT);
     
     blackArray[i] = 0;
-    for (int i = 0; i < CALIBRATE_NO; ++i) {
+    for (int j = 0; j < CALIBRATE_NO; ++j) {
       blackArray[i] += analogRead(LDR_PIN);
       delay(LDR_WAIT);
     }
@@ -470,4 +477,14 @@ void calibrateWB() {
   }
   led.setColor(0,0,0); led.show();
   Serial.println("done.");
+
+  // Output calibrated
+  Serial.print("#define BLA_VAL         {");
+  Serial.print(blackArray[0]); Serial.print(", ");
+  Serial.print(blackArray[1]); Serial.print(", ");
+  Serial.print(blackArray[2]); Serial.println("}");
+  Serial.print("#define GRE_VAL         {");
+  Serial.print(greyDiff[0]); Serial.print(", ");
+  Serial.print(greyDiff[1]); Serial.print(", ");
+  Serial.print(greyDiff[2]); Serial.println("}");
 }
