@@ -15,7 +15,6 @@ using ll = long long;
 MeDCMotor               leftWheel(M1);          // -255 to 255
 MeDCMotor               rightWheel(M2);         // 255 to -255, ie reversed
 MeLineFollower          lineFinder(PORT_2);     // PORT_3
-// MeColorSensor           colorSensor(PORT_1);
 MeUltrasonicSensor      ultraSensor(PORT_1);    // PORT_7
 MeSoundSensor           highSound(PORT_6);
 MeSoundSensor           lowSound(PORT_5);
@@ -35,10 +34,13 @@ MeBuzzer                buzzer;
 #define K_DIST          (255/2)                 // max correction to mvmt
 #define LEFT_BIAS       0                       // 128
 #define FRONT_BIAS      40                      // cm
+#define K_LEFTIR        200                     // threshold for IR sensor values
+#define K_RIGHTIR       200
+#define TIMEMUL         5                       // time multiplier for IR adjustment
 
 // Sound
 #define K_SNDLOW        35                     // 80
-#define K_SNDHI         10                     // 75
+#define K_SNDHI         8                     // 75
 
 // Color
 // retrieved from colourcal.ino file after calibration
@@ -97,6 +99,16 @@ void setup() {
 
 void stopMove(int i);
 void loop() {
+//  Serial.println(ultraSensor.distanceCm()); 
+//  delay(500);
+//  return;
+//  forwardGrid();
+//  return;
+//  int right=analogRead(RIGHTIR_PIN),left=analogRead(LEFTIR_PIN);;
+//  Serial.print("Right: "); Serial.println(right);
+//  Serial.print("Left: "); Serial.println(left);
+//  delay(500);
+//  return;
   if (busy) return;
 
   // double dist = ultraSensor.distanceCm();
@@ -153,16 +165,14 @@ void stopMove(int i = 10) {
 }
 
 void moveForward() {
-  // for (int i = 0; i < DELAYGRID; ++i) {
-    int dx = getDist();
+  int dx = getDist();
     
-    // Normalise to MOTORSPEED
-    int maxx = MOTORSPEED + (dx >= 0 ? dx : -dx);
-    leftWheel.run((ll)(-MOTORSPEED + dx) * MOTORSPEED / maxx);
-    rightWheel.run((ll)(MOTORSPEED + dx) * MOTORSPEED / maxx);
+  // Normalise to MOTORSPEED
+  int maxx = MOTORSPEED + (dx >= 0 ? dx : -dx);
+  leftWheel.run((ll)(-MOTORSPEED + dx) * MOTORSPEED / maxx);
+  rightWheel.run((ll)(MOTORSPEED + dx) * MOTORSPEED / maxx);
     
-    delay(TIMEDELAY);
-  // }
+  delay(TIMEDELAY*TIMEMUL);
   stopMove(0);
 }
 
@@ -173,7 +183,10 @@ void forward() {
 }
 
 void forwardGrid() {
-  for (int i = 0; i < DELAYGRID; ++i) { forward(); }
+  for (int i = 0; i < DELAYGRID; ++i) { 
+    if (ultraSensor.distanceCm() < 7) break;
+    forward();
+  }
   stopMove();
 }
 
@@ -241,11 +254,11 @@ int getDist() {
   // METHOD 2
   // Take raw value and threshold
   int ir = analogRead(LEFTIR_PIN);
-  if (ir < 100) { // turn right
-    return (ir - 100) * K_DIST / 100;
+  if (ir < K_LEFTIR) { // turn right
+    return (ir - K_LEFTIR) * K_DIST / 100;
   }
-  else if (ir = analogRead(RIGHTIR_PIN), ir < 100) { // turn left
-    return (100 - ir) * K_DIST / 100;
+  else if (ir = analogRead(RIGHTIR_PIN), ir < K_RIGHTIR) { // turn left
+    return (K_RIGHTIR - ir) * K_DIST / 100;
   }
   return 0;
 
