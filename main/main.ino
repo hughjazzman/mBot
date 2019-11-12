@@ -37,15 +37,18 @@ MeBuzzer                buzzer;
 #define FRONT_BIAS      40                      // cm
 
 // Sound
-#define K_SNDLOW        30                     // 80
-#define K_SNDHI         70                     // 75
+#define K_SNDLOW        40                     // 80
+#define K_SNDHI         10                     // 75
 
 // Color
 // retrieved from colourcal.ino file after calibration
-#define MIN_DIST        10000
+#define MIN_DIST        5000                   // 10000
 #define WHI_VAL         {375, 335, 380}         // from LDR b4 normalisation
-#define BLA_VAL         {315, 265, 305}
-#define GRE_VAL         {60,70,75}
+#define BLA_VAL         {318, 276, 313}         // {315, 265, 305}
+#define GRE_VAL         {102, 93, 109}          // {60,70,75}
+//#define BLA_VAL         {315, 265, 305}
+//#define GRE_VAL         {60,70,75}
+
 #define RED_ARR         {185,35,35}             // normalised rgb vals
 #define GRE_ARR         {45, 100, 60}
 #define YEL_ARR         {255, 175, 100}
@@ -55,7 +58,7 @@ MeBuzzer                buzzer;
 #define NUMCOL          6                       // black, red, green, yellow, purple, blue
 
 // Calibration
-#define CALLIBRATE_SEC  2                       // delay b4 calibration
+#define CALLIBRATE_SEC  3                       // delay b4 calibration
 #define CALIBRATE_NO    10                      // no of measurements
 #define IR_WAIT         100                     // delay btw measurements. IMPT!
 #define RGB_WAIT        200
@@ -69,7 +72,7 @@ MeBuzzer                buzzer;
 /********** Global Variables **********/
 bool busy = true;
 
-int IR_VALUES[2][2] = {{0,0},{0,0}}; // left-right, minmax
+int IR_VALUES[2][2] = {{68,10},{81,19}}; // left-right, minmax
 ll error = 0;
 
 int blackArray[] = BLA_VAL;
@@ -86,8 +89,8 @@ void setup() {
   pinMode(SNDHI_PIN, INPUT);
   Serial.begin(9600);
 
- calibrateWB();
- calibrateIR();
+// calibrateWB();
+//  calibrateIR();
   // colorSensor.SensorInit();
   busy = false;
 }
@@ -98,9 +101,12 @@ void loop() {
 
   // double dist = ultraSensor.distanceCm();
   // Serial.println(dist);
-  // Serial.print("LOW: "); Serial.print(analogRead(SNDLOW_PIN)); //delay(MIC_WAIT);
-  // Serial.print(" HIGH: "); Serial.println(analogRead(SNDHI_PIN)); delay(MIC_WAIT);
-  // return;
+//   Serial.print("LOW: "); Serial.print(analogRead(SNDLOW_PIN)); //delay(MIC_WAIT);
+//   Serial.print(" HIGH: "); Serial.println(analogRead(SNDHI_PIN)); delay(MIC_WAIT);
+  printColour(getColour());
+//  Serial.println(getDist());
+//  delay(100);
+  return;
 
   // double frontDistance = ultraSensor.distanceCm();
   if (lineFinder.readSensors() != S1_IN_S2_IN) { // both sensors not in black line
@@ -117,6 +123,7 @@ void loop() {
   int colourRes;
   do {
     colourRes = getColour();
+    printColour(colourRes);
   } while (colourRes == -1);
   if (colourRes > 0) { // is color challenge (not black)
     colorWaypoint(colourRes);
@@ -210,6 +217,28 @@ int getDist() {
   // Must account for waypoint distances
   if (ultraSensor.distanceCm() > FRONT_BIAS) return 0;
 
+  // Jiggle and see left/right better
+  stopMove(0); busy = true;
+  unsigned long time = millis() + TIMETURN / 4;
+
+  // Jiggle Right
+  while (millis() < time || ultraSensor.distanceCm() < FRONT_BIAS) {
+    leftWheel.run(-MOTORSPEED); rightWheel.run(MOTORSPEED);
+  }
+  stopMove(0);
+  if (ultraSensor.distanceCm() > FRONT_BIAS) {
+    busy = false; return 0;
+  }
+
+  time = millis() + TIMETURN / 2;
+  // Jiggle Right
+  while (millis() < time || ultraSensor.distanceCm() < FRONT_BIAS) {
+    leftWheel.run(MOTORSPEED); rightWheel.run(-MOTORSPEED);
+  };
+  stopMove(0); busy = false;
+  return 0;
+ 
+
   // IR Sensor: Side Proximity
   // If left > right, too close to right, turn left
   int left = analogRead(LEFTIR_PIN), right = analogRead(RIGHTIR_PIN);
@@ -217,10 +246,10 @@ int getDist() {
   right = norm(right, IR_VALUES[1]);
 
   // Only care if too close to either side
-  if (left > 877) left = 1; // so we know it's not 0
-  if (right > 877) right = 1;
   Serial.print("LEFT: "); Serial.print(left);
   Serial.print("\tRIGHT: "); Serial.println(right);
+  if (left > 877) left = 2; // so we know it's not 1
+  if (right > 877) right = 2;
 
   // TODO: Check front
   // Ultrasonic
@@ -279,19 +308,22 @@ int getColour() { // returns index of best color
     }
     colourArray[i] /= CALIBRATE_NO;
     colourArray[i] = (colourArray[i] - blackArray[i]) * 255 / greyDiff[i];
+    Serial.println(colourArray[i]);
   }
   led.setColor(0,0,0); led.show();
 
   int idx = -1, min_dist = MIN_DIST;
   for (int i = 0; i < 6; ++i) {
-    ll curr_dist = 0;
+    long long curr_dist = 0;
     for (int j = 0; j < 3; ++j) {
       curr_dist += square(allColourArray[i][j] - colourArray[j]);
     }
+//    Serial.print(i); Serial.print(curr_dist); Serial.print(", ");
     if (min_dist > curr_dist && curr_dist > 0) {
       idx = i; min_dist = curr_dist;
     }
   }
+  Serial.println();
 
   return idx;
 }
@@ -338,6 +370,7 @@ void colorWaypoint(int colourRes) {
   // yellow : 180deg within grid
   // purple : 2 left
   // light blue : 2 right
+//  {BLA_ARR,RED_ARR,GRE_ARR,YEL_ARR,PUR_ARR,BLU_ARR}
   switch (colourRes) {
     case 1: turnLeft(); break;
     case 2: turnRight(); break;
@@ -374,7 +407,7 @@ void finishWaypoint() {
 /********** Calibration **********/
 int norm(const int val, const int *low_mult) {
   int tmp = 1023LL * (val - *low_mult) / *(low_mult+1); // int will overflow
-  if (tmp < 0) tmp = 0;
+  if (tmp < 0) tmp = 1;
   else if (tmp > 1023) tmp = 1023;
   return tmp;
 }
@@ -422,10 +455,10 @@ void calibrateIR() {
 
   // Output calibrated
   Serial.print("int IR_VALUES[2][2] = {{");
-  Serial.print(IR_VALUES[0][0]); Seria.print(",");
-  Serial.print(IR_VALUES[0][1]); Seria.print("},{");
-  Serial.print(IR_VALUES[1][0]); Seria.print(",");
-  Serial.print(IR_VALUES[1][1]); Seria.println("}};");
+  Serial.print(IR_VALUES[0][0]); Serial.print(",");
+  Serial.print(IR_VALUES[0][1]); Serial.print("},{");
+  Serial.print(IR_VALUES[1][0]); Serial.print(",");
+  Serial.print(IR_VALUES[1][1]); Serial.println("}};");
 }
 
 void calibrateWB() {
