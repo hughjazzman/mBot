@@ -27,9 +27,9 @@ MeBuzzer                buzzer;
 #define TIMEDELAY       20                      // delay b4 recheck position
 
 // Movement
-#define MOTORSPEED      150
-#define TIMETURN        (75000/MOTORSPEED)      // time for 90deg turn
-#define TIMEGRID        (220000/MOTORSPEED)     // time to travel 1 grid
+#define MOTORSPEED      220
+#define TIMETURN        (72500/MOTORSPEED)      // time for 90deg turn
+#define TIMEGRID        (180000/MOTORSPEED)     // time to travel 1 grid
 #define DELAYGRID       (TIMEGRID / TIMEDELAY)
 #define K_ERR           0.5
 #define K_DIST          (255/2)                 // max correction to mvmt
@@ -59,7 +59,7 @@ MeBuzzer                buzzer;
 
 // Calibration
 #define CALLIBRATE_SEC  3                       // delay b4 calibration
-#define CALIBRATE_NO    10                      // no of measurements
+#define CALIBRATE_NO    50                      // no of measurements
 #define IR_WAIT         100                     // delay btw measurements. IMPT!
 #define RGB_WAIT        200
 #define LDR_WAIT        10
@@ -212,43 +212,44 @@ void uTurn() {
 
 /********** Sensors **********/
 int getDist() {
-  // // METHOD 1
-  // // Sweep left/right to find avail space
-  // if (ultraSensor.distanceCm() > FRONT_BIAS) return 0;
-
-  // // Jiggle and see left/right better
-  // stopMove(0); busy = true;
-  // unsigned long time = millis() + TIMETURN / 4;
-
-  // // Jiggle Right
-  // while (millis() < time || ultraSensor.distanceCm() < FRONT_BIAS) {
-  //   leftWheel.run(-MOTORSPEED); rightWheel.run(MOTORSPEED);
-  // }
-  // stopMove(0);
-  // if (ultraSensor.distanceCm() > FRONT_BIAS) {
-  //   busy = false; return 0;
-  // }
-
-  // time = millis() + TIMETURN / 2;
-  // // Jiggle Right
-  // while (millis() < time || ultraSensor.distanceCm() < FRONT_BIAS) {
-  //   leftWheel.run(MOTORSPEED); rightWheel.run(-MOTORSPEED);
-  // };
-  // stopMove(0); busy = false;
-  // return 0;
+//  
+//   // METHOD 1
+//   // Sweep left/right to find avail space
+//   if (ultraSensor.distanceCm() > FRONT_BIAS) return 0;
+//
+//   // Jiggle and see left/right better
+//   stopMove(0); busy = true;
+//   unsigned long time = millis() + TIMETURN / 4;
+//
+//   // Jiggle Right
+//   while (millis() < time || ultraSensor.distanceCm() < FRONT_BIAS) {
+//     leftWheel.run(-MOTORSPEED); rightWheel.run(MOTORSPEED);
+//   }
+//   stopMove(0);
+//   if (ultraSensor.distanceCm() > FRONT_BIAS) {
+//     busy = false; return 0;
+//   }
+//
+//   time = millis() + TIMETURN / 2;
+//   // Jiggle Right
+//   while (millis() < time || ultraSensor.distanceCm() < FRONT_BIAS) {
+//     leftWheel.run(MOTORSPEED); rightWheel.run(-MOTORSPEED);
+//   };
+//   stopMove(0); busy = false;
+//   return 0;
  
   // METHOD 2
   // Take raw value and threshold
   int ir = analogRead(LEFTIR_PIN);
   if (ir < 100) { // turn right
-    return (100 - ir) * K_DIST / 100;
+    return (ir - 100) * K_DIST / 100;
   }
   else if (ir = analogRead(RIGHTIR_PIN), ir < 100) { // turn left
-    return (ir - 100) * K_DIST / 100;
+    return (100 - ir) * K_DIST / 100;
   }
   return 0;
 
-
+/*
   // METHOD 3
   // Calibrate, normalise and bias
   int left = analogRead(LEFTIR_PIN), right = analogRead(RIGHTIR_PIN);
@@ -269,6 +270,7 @@ int getDist() {
   curr -= error;
   error += curr;
   return curr + error * K_ERR;
+  */
 }
 
 // Sound Sensor: Return first hz
