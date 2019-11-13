@@ -22,29 +22,29 @@ MeRGBLed                led(LED_PIN);
 MeBuzzer                buzzer;
 
 // General
-#define WAYPTDELAY      100                     // delay b4 decoding challenge
+#define WAYPTDELAY      0                       // delay b4 decoding challenge
 #define TIMEDELAY       20                      // delay b4 recheck position
 
 // Movement
 #define MOTORSPEED      220
-#define TIMETURN        (72500/MOTORSPEED)      // time for 90deg turn
+#define TIMETURN        (61600/MOTORSPEED)      // time for 90deg turn
 #define TIMEGRID        (180000/MOTORSPEED)     // time to travel 1 grid
 #define DELAYGRID       (TIMEGRID / TIMEDELAY)
 #define K_ERR           0.5
 #define K_DIST          (255/2)                 // max correction to mvmt
 #define LEFT_BIAS       0                       // 128
-#define FRONT_BIAS      40                      // cm
+#define FRONT_BIAS      10                      // cm
 #define K_LEFTIR        200                     // threshold for IR sensor values
 #define K_RIGHTIR       200
 #define TIMEMUL         5                       // time multiplier for IR adjustment
 
 // Sound
-#define K_SNDLOW        35                     // 80
-#define K_SNDHI         8                     // 75
+#define K_SNDLOW        35                      // 80
+#define K_SNDHI         8                       // 75
 
 // Color
 // retrieved from colourcal.ino file after calibration
-#define MIN_DIST        5000                   // 10000
+#define MIN_DIST        5000                    // 10000
 #define WHI_VAL         {375, 335, 380}         // from LDR b4 normalisation
 //#define BLA_VAL         {318, 276, 313}         // {315, 265, 305}
 //#define GRE_VAL         {102, 93, 109}          // {60,70,75}
@@ -61,9 +61,10 @@ MeBuzzer                buzzer;
 
 // Calibration
 #define CALLIBRATE_SEC  3                       // delay b4 calibration
-#define CALIBRATE_NO    50                      // no of measurements
+#define COLOUR_NO       50                      // 50
+#define SOUND_NO        50                      // no of measurements
 #define IR_WAIT         100                     // delay btw measurements. IMPT!
-#define RGB_WAIT        200
+#define RGB_WAIT        100                     // 200
 #define LDR_WAIT        10
 #define MIC_WAIT        100
 #define LED_MAX         255
@@ -105,11 +106,11 @@ void loop() {
 //  forwardGrid();
 //  return;
 //  int right=analogRead(RIGHTIR_PIN),left=analogRead(LEFTIR_PIN);;
-//  Serial.print("Right: "); Serial.println(right);
-//  Serial.print("Left: "); Serial.println(left);
-//  delay(500);
+//  Serial.print("Right: "); Serial.print(right);
+//  Serial.print(" Left: "); Serial.println(left);
+//  delay(100);
 //  return;
-  if (busy) return;
+//  if (busy) return;
 
   // double dist = ultraSensor.distanceCm();
   // Serial.println(dist);
@@ -165,6 +166,7 @@ void stopMove(int i = 10) {
 }
 
 void moveForward() {
+  if (ultraSensor.distanceCm() < FRONT_BIAS) return;
   int dx = getDist();
     
   // Normalise to MOTORSPEED
@@ -184,7 +186,7 @@ void forward() {
 
 void forwardGrid() {
   for (int i = 0; i < DELAYGRID; ++i) { 
-    if (ultraSensor.distanceCm() < 7) break;
+    if (ultraSensor.distanceCm() < FRONT_BIAS) break;
     forward();
   }
   stopMove();
@@ -288,7 +290,7 @@ int getDist() {
 
 // Sound Sensor: Return first hz
 int getSound() {
-  for (int i = 0; i < CALIBRATE_NO; ++i) {
+  for (int i = 0; i < SOUND_NO; ++i) {
     int low = analogRead(SNDLOW_PIN);
     int hi = analogRead(SNDHI_PIN);
     if (low > K_SNDLOW) return 1;
@@ -310,11 +312,11 @@ int getColour() { // returns index of best color
     ); led.show();
     delay(RGB_WAIT);
 
-    for (int j = 0; j < CALIBRATE_NO; ++j) {
+    for (int j = 0; j < COLOUR_NO; ++j) {
       colourArray[i] += analogRead(LDR_PIN);
       delay(LDR_WAIT);
     }
-    colourArray[i] /= CALIBRATE_NO;
+    colourArray[i] /= COLOUR_NO;
     colourArray[i] = (colourArray[i] - blackArray[i]) * 255 / greyDiff[i];
     Serial.println(colourArray[i]);
   }
@@ -429,13 +431,13 @@ void calibrateIR() {
     Serial.print(i); Serial.print(".. "); delay(1000);
   }
   IR_VALUES[0][0] = IR_VALUES[1][0] = 0;
-  for (int i = 0; i < CALIBRATE_NO; ++i) {
+  for (int i = 0; i < SOUND_NO; ++i) {
     IR_VALUES[0][0] += analogRead(LEFTIR_PIN);
     IR_VALUES[1][0] += analogRead(RIGHTIR_PIN);
     delay(IR_WAIT);
   }
-  IR_VALUES[0][0] /= CALIBRATE_NO;
-  IR_VALUES[1][0] /= CALIBRATE_NO;
+  IR_VALUES[0][0] /= SOUND_NO;
+  IR_VALUES[1][0] /= SOUND_NO;
   Serial.println("done.");
 
   // Max values
@@ -444,13 +446,13 @@ void calibrateIR() {
     Serial.print(i); Serial.print(".. "); delay(1000);
   }
   IR_VALUES[0][1] = IR_VALUES[1][1] = 0;
-  for (int i = 0; i < CALIBRATE_NO; ++i) {
+  for (int i = 0; i < SOUND_NO; ++i) {
     IR_VALUES[0][1] += analogRead(LEFTIR_PIN);
     IR_VALUES[1][1] += analogRead(RIGHTIR_PIN);
     delay(IR_WAIT);
   }
-  IR_VALUES[0][1] /= CALIBRATE_NO;
-  IR_VALUES[1][1] /= CALIBRATE_NO;
+  IR_VALUES[0][1] /= SOUND_NO;
+  IR_VALUES[1][1] /= SOUND_NO;
   Serial.println("done.\n");
 
   // Save range
@@ -486,11 +488,11 @@ void calibrateWB() {
     ); led.show();
     delay(RGB_WAIT);
 
-    for (int j = 0; j < CALIBRATE_NO; ++j) {
+    for (int j = 0; j < COLOUR_NO; ++j) {
       whiteArray[i] += analogRead(LDR_PIN);
       delay(LDR_WAIT);
     }
-    whiteArray[i] /= CALIBRATE_NO;
+    whiteArray[i] /= COLOUR_NO;
   }
   led.setColor(0,0,0); led.show();
   Serial.println("done.");
@@ -509,11 +511,11 @@ void calibrateWB() {
     delay(RGB_WAIT);
     
     blackArray[i] = 0;
-    for (int j = 0; j < CALIBRATE_NO; ++j) {
+    for (int j = 0; j < COLOUR_NO; ++j) {
       blackArray[i] += analogRead(LDR_PIN);
       delay(LDR_WAIT);
     }
-    blackArray[i] /= CALIBRATE_NO;
+    blackArray[i] /= COLOUR_NO;
     greyDiff[i] = whiteArray[i] - blackArray[i];
   }
   led.setColor(0,0,0); led.show();
