@@ -2,12 +2,12 @@
 /* TO CHANGE allColourArray in getColour() in main.ino to finalColVal 
 after finding values from colourcal.ino */
 
-// values determined on 08 Nov 19
-#define REDARR {185,35,35}
-#define GREARR {45, 100, 60}
-#define YELARR {255, 175, 100}
-#define PURARR {115, 110, 175}
-#define BLUARR {140, 200, 230}
+// values determined on 14 Nov 19
+#define REDARR         {185,35,35}             // normalised rgb vals
+#define GREARR         {45, 100, 60}
+#define YELARR         {255, 175, 100} //325,230,135
+#define PURARR         {155,150,200}
+#define BLUARR         {175,240,240}
 #define BLAARR {0,0,0}
 
 #include <MeRGBLed.h>
@@ -41,8 +41,8 @@ int blue = 0;
 //floats to hold colour arrays
 float colourArray[] = {0, 0, 0};
 float whiteArray[] = {375, 335, 380};
-float blackArray[] = {315, 265, 305};
-float greyDiff[] = {60, 70, 75};
+float blackArray[] = {255, 217, 243};//{315, 265, 305};
+float greyDiff[] = {116, 108, 130};//{60, 70, 75};
 float allColourArray[6][3] = {BLAARR, REDARR, GREARR, YELARR, PURARR, BLUARR}; // red,green,yellow,purple,lightblue
 
 char colourStr[3][5] = {"R = ", "G = ", "B = "};
@@ -55,7 +55,7 @@ void setup() {
   Serial.begin(9600);
   //colour calibration first
   // to do: save values in array
-  setBalance();
+//  setBalance();
 //  for (int i = 0; i < 5; i++) {
 //    setColours(i);
 //  }

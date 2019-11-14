@@ -39,23 +39,26 @@ MeBuzzer                buzzer;
 #define TIMEMUL         5                       // time multiplier for IR adjustment
 
 // Sound
-#define K_SNDLOW        35                      // 80
-#define K_SNDHI         8                       // 75
+#define K_SNDLOW        40                      // 80
+#define K_SNDHI         20                      // 75
 
 // Color
 // retrieved from colourcal.ino file after calibration
 #define MIN_DIST        5000                    // 10000
 #define WHI_VAL         {375, 335, 380}         // from LDR b4 normalisation
-//#define BLA_VAL         {318, 276, 313}         // {315, 265, 305}
+//#define WHI_VAL         {375, 335,380}          409,366,413
+//#define BLA_VAL         {318, 276, 313}         // 
 //#define GRE_VAL         {102, 93, 109}          // {60,70,75}
 #define BLA_VAL         {255, 217, 243}
 #define GRE_VAL         {116, 108, 130}
 
 #define RED_ARR         {185,35,35}             // normalised rgb vals
 #define GRE_ARR         {45, 100, 60}
-#define YEL_ARR         {255, 175, 100}
-#define PUR_ARR         {115, 110, 175}
-#define BLU_ARR         {140, 200, 230}
+#define YEL_ARR         {255, 175, 100} //325,230,135
+#define PUR_ARR         {155,150,200}
+#define BLU_ARR         {175,240,240}
+//#define PUR_ARR         {115, 110, 175} //old values
+//#define BLU_ARR         {140, 200, 230} //old values
 #define BLA_ARR         {0,0,0}
 #define NUMCOL          6                       // black, red, green, yellow, purple, blue
 
@@ -108,18 +111,17 @@ void loop() {
 //  int right=analogRead(RIGHTIR_PIN),left=analogRead(LEFTIR_PIN);;
 //  Serial.print("Right: "); Serial.print(right);
 //  Serial.print(" Left: "); Serial.println(left);
+
+//Serial.print("Low: "); Serial.print(analogRead(SNDLOW_PIN));
+//Serial.print("  High: "); Serial.println(analogRead(SNDHI_PIN));
+//
 //  delay(100);
 //  return;
 //  if (busy) return;
 
   // double dist = ultraSensor.distanceCm();
   // Serial.println(dist);
-//   Serial.print("LOW: "); Serial.print(analogRead(SNDLOW_PIN)); //delay(MIC_WAIT);
-//   Serial.print(" HIGH: "); Serial.println(analogRead(SNDHI_PIN)); delay(MIC_WAIT);
-//  printColour(getColour());
-//  Serial.println(getDist());
-//  delay(100);
-//  return;
+// soundwa
 
   // double frontDistance = ultraSensor.distanceCm();
   if (lineFinder.readSensors() != S1_IN_S2_IN) { // both sensors not in black line
@@ -293,8 +295,8 @@ int getSound() {
   for (int i = 0; i < SOUND_NO; ++i) {
     int low = analogRead(SNDLOW_PIN);
     int hi = analogRead(SNDHI_PIN);
+    if (hi > K_SNDHI) return 2;
     if (low > K_SNDLOW) return 1;
-    else if (hi > K_SNDHI) return 2;
     delay(MIC_WAIT);
   }
   return 0;
