@@ -1,68 +1,62 @@
 // SEPARATE FILE to calibrate colour
-/* TO CHANGE allColourArray in getColour() in main.ino to finalColVal 
-after finding values from colourcal.ino */
 
-// values determined on 14 Nov 19
-#define REDARR         {185,35,35}             // normalised rgb vals
-#define GREARR         {45, 100, 60}
-#define YELARR         {255, 175, 100} //325,230,135
-#define PURARR         {155,150,200}
-#define BLUARR         {175,240,240}
-#define BLAARR {0,0,0}
-
-#include <MeRGBLed.h>
-
-#include "MeMCore.h"
+#include <MeMCore.h>
 #include "Wire.h"
 
-/* COLOR SENSOR CONSTANTS*/
+/********** Settings **********/
+#define LDR             A6  // LDR sensor pin at A6
+MeRGBLed led(7);            // RGB LED at pin 7
+
+// Values determined on 14 Nov 19
+// LDR Values for White/Black before normalisation
+#define WHI_VAL         {375, 335, 380}         
+#define BLA_VAL         {255, 217, 243}
+#define GRE_VAL         {116, 108, 130}
+// Normalised RGB Values for Colours
+#define RED_ARR         {185, 35, 35}             
+#define GRE_ARR         {45, 100, 60}
+#define YEL_ARR         {255, 175, 100}
+#define PUR_ARR         {155, 150, 200}
+#define BLU_ARR         {175, 240, 240}
+#define BLA_ARR         {0}
+#define NUMCOL          6               // No. of colours to detect
+
+// Calibration
 // Define time delay before the next RGB colour turns ON to allow LDR to stabilize
-#define RGBWait 200 //in milliseconds 
-
+#define RGBWait         200 // in milliseconds 
 // Define time delay before taking another LDR reading
-#define LDRWait 10 //in milliseconds 
+#define LDRWait         10  // in milliseconds 
+#define MAXLED          255 // max value of LED RGB values
+#define MIN_DIST        5000
+#define CAL_NO          50
 
-#define LDR A6   //LDR sensor pin at A6
-
-#define MAXLED 255 // max value of LED RGB values
-
-#define COLOURTHRESHOLD 20 //max deviation from calibrated colour values
-
-// Color Sensor setup - confirmed
-MeRGBLed led(7); // pin 7 is the RGB LED (WHY??)
-
-/* COLOUR VARIABLES*/
-
-//placeholders for colour detected
+/********** Global Variables **********/
+// Placeholders for colour detected
 int red = 0;
 int green = 0;
 int blue = 0;
 
-//floats to hold colour arrays
-float colourArray[] = {0, 0, 0};
-float whiteArray[] = {375, 335, 380};
-float blackArray[] = {255, 217, 243};//{315, 265, 305};
-float greyDiff[] = {116, 108, 130};//{60, 70, 75};
-float allColourArray[6][3] = {BLAARR, REDARR, GREARR, YELARR, PURARR, BLUARR}; // red,green,yellow,purple,lightblue
+// Arrays to hold colour values
+float colourArray[] = {0};
+int whiteArray[] = WHI_VAL;
+int blackArray[] = BLA_VAL;//{315, 265, 305};
+int greyDiff[] = GRE_VAL;
+static int allColourArray[NUMCOL][3] = {BLA_ARR, RED_ARR, GRE_ARR, YEL_ARR, PUR_ARR, BLU_ARR};
 
 char colourStr[3][5] = {"R = ", "G = ", "B = "};
 
-//resulting colour at waypoints (calibration done before start)
-int colourRes = 0;
+// Value corresponding to each colour
+int colourRes;
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
-  //colour calibration first
-  // to do: save values in array
-//  setBalance();
-//  for (int i = 0; i < 5; i++) {
-//    setColours(i);
-//  }
+  setBalance();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
+  // This code will automatically print the RGB Values of the current object.
   colourRes = getColour();
   Serial.print("Your colour is ");
   printColour(colourRes);
@@ -98,11 +92,10 @@ void printColour(int colourRes) {
 }
 
 /* COLOUR FUNCTIONS */
-// setBalance - calibrate between white and black
-// setColours - set values of default colours into allColoursArray
-// getColourValues - gets colour values of a given sample
-// getColour - get colour from the default colours
-// getAvgReading - gets direct reading from LDR
+// setBalance       - calibrate white and black values
+// getColourValues  - gets colour values of a given sample
+// getColour        - get colour from the default colours
+// getAvgReading    - gets direct reading from LDR
 
 void setBalance() {
   //set white balance
@@ -110,7 +103,7 @@ void setBalance() {
   delay(5000);           //delay for five seconds for getting sample ready
   //digitalWrite(LED,LOW); //Check Indicator OFF during Calibration
   //scan the white sample.
-  //go through one colour at a time, set the maximum reading for each colour -- red, green and blue to the white array
+  //go through one colour at a time, set the maximum reading for each colour -- red, green and blue to the white Array
   for (int i = 0; i <= 2; i++) {
     int r = 0, g = 0, b = 0;
     switch (i) {
@@ -121,17 +114,18 @@ void setBalance() {
     led.setColor(r * MAXLED, g * MAXLED, b * MAXLED);
     led.show();
     delay(RGBWait);
-    whiteArray[i] = getAvgReading(5);
+    whiteArray[i] = getAvgReading(CAL_NO);
     Serial.println(whiteArray[i]);
     delay(RGBWait);
   }
   led.setColor(0, 0, 0);
   led.show();
   //done scanning white, time for the black sample.
+
   //set black balance
   Serial.println("Put Black Sample For Calibration ...");
   delay(5000);     //delay for five seconds for getting sample ready
-  //go through one colour at a time, set the minimum reading for red, green and blue to the black array
+  //go through one colour at a time, set the minimum reading for red, green and blue to the black Array
   for (int i = 0; i <= 2; i++) {
     int r = 0, g = 0, b = 0;
     switch (i) {
@@ -142,7 +136,7 @@ void setBalance() {
     led.setColor(r * MAXLED, g * MAXLED, b * MAXLED);
     led.show();
     delay(RGBWait);
-    blackArray[i] = getAvgReading(5);
+    blackArray[i] = getAvgReading(CAL_NO);
     Serial.println(blackArray[i]);
     delay(RGBWait);
     //the differnce between the maximum and the minimum gives the range
@@ -156,32 +150,11 @@ void setBalance() {
   delay(5000);
 }
 
-
-void setColours(int colour) {
-  switch (colour) {
-    case 0: Serial.println("Put Red Sample For Calibration ..."); break;
-    case 1: Serial.println("Put Green Sample For Calibration ..."); break;
-    case 2: Serial.println("Put Yellow Sample For Calibration ..."); break;
-    case 3: Serial.println("Put Purple Sample For Calibration ..."); break;
-    case 4: Serial.println("Put Light Blue Sample For Calibration ..."); break;
-  }
-  delay(5000);
-  for (int c = 0; c <= 2; c++) {
-    getColourValues(c);
-    allColourArray[colour][c] = colourArray[c];
-    delay(RGBWait);
-    Serial.println(int(colourArray[c])); //show the value for the current colour LED, which corresponds to either the R, G or B of the RGB code
-  }
-  led.setColor(0, 0, 0);
-  led.show();
-  delay(5000);
-}
-
 int getColour() {
-  int idx=-1,min_dist=10000;
+  int idx=-1,min_dist=MIN_DIST;
   long long curr_dist;
 
-  // Gets RGB values for current colour
+  // Gets RGB values for current colour. This prints the RGB values of the current object.
   for (int x=0; x<3; x++) {
     getColourValues(x);
     Serial.println(colourArray[x]);
@@ -215,9 +188,9 @@ int getColourValues(int rgb) {
   led.show();//turn ON the LED, red, green or blue, one colour at a time.
   delay(RGBWait);
   //get the average of 5 consecutive readings for the current colour and return an average
-  colourArray[rgb] = getAvgReading(5);
+  colourArray[rgb] = getAvgReading(CAL_NO);
   //the average reading returned minus the lowest value divided by the maximum possible range, multiplied by 255 will give a value between 0-255, representing the value for the current reflectivity (i.e. the colour LDR is exposed to)
-  colourArray[rgb] = (colourArray[rgb] - blackArray[rgb]) / (greyDiff[rgb]) * 255;
+  colourArray[rgb] = (colourArray[rgb] - blackArray[rgb]) / (greyDiff[rgb]) * MAXLED;
   led.setColor(0, 0, 0);
   led.show();
 }
