@@ -4,8 +4,8 @@
 #include "Wire.h"
 
 /********** Settings **********/
-#define LDR             A6  // LDR sensor pin at A6
-MeRGBLed led(7);            // RGB LED at pin 7
+#define LDR             A6              // LDR sensor pin at A6
+MeRGBLed led(7);                        // RGB LED at pin 7
 
 // Values determined on 14 Nov 19
 // LDR Values for White/Black before normalisation
@@ -23,10 +23,10 @@ MeRGBLed led(7);            // RGB LED at pin 7
 
 // Calibration
 // Define time delay before the next RGB colour turns ON to allow LDR to stabilize
-#define RGBWait         200 // in milliseconds 
+#define RGBWait         200             // in milliseconds 
 // Define time delay before taking another LDR reading
-#define LDRWait         10  // in milliseconds 
-#define MAXLED          255 // max value of LED RGB values
+#define LDRWait         10              // in milliseconds 
+#define MAXLED          255             // max value of LED RGB values
 #define MIN_DIST        5000
 #define CAL_NO          50
 
@@ -66,27 +66,13 @@ void loop() {
 void printColour(int colourRes) {
   String s;
   switch (colourRes){
-    case 0:
-      s="black";
-      break;
-    case 1:
-      s="red";
-      break;
-    case 2:
-      s="green";
-      break;
-    case 3:
-      s="yellow";
-      break;
-    case 4:
-      s="purple";
-      break;
-    case 5:
-      s="light blue";
-      break;
-    default:
-      s="not found";
-      break;
+    case 0: s="black"; break;
+    case 1: s="red"; break;
+    case 2: s="green"; break;
+    case 3: s="yellow"; break;
+    case 4: s="purple"; break;
+    case 5: s="light blue"; break;
+    default: s="not found"; break;
   }
   Serial.println(s);
 }

@@ -26,13 +26,11 @@ MeBuzzer                buzzer;
 #define TIMEGRID        (180000/MOTORSPEED)     // time to travel 1 grid
 #define TIMEDELAY       20                      // delay b4 recheck position
 #define DELAYGRID       (TIMEGRID / TIMEDELAY)
-#define K_ERR           0.5
+#define TIMEMUL         5                       // time multiplier for IR adjustment
 #define K_DIST          (255/2)                 // max correction to mvmt
-#define LEFT_BIAS       0                       // 128
-#define FRONT_BIAS      10                      // cm
+#define D_FRONT         10                      // cm
 #define V_LEFTIR        200                     // threshold for IR sensor values
 #define V_RIGHTIR       200
-#define TIMEMUL         5                       // time multiplier for IR adjustment
 
 // Sound
 #define V_SNDLOW        40                      // 80
@@ -40,7 +38,7 @@ MeBuzzer                buzzer;
 
 // Color
 // retrieved from colourcal.ino file after calibration
-#define MIN_DIST        5000                    // 10000
+#define COL_DIST        5000                    // 10000
 #define WHI_VAL         {375, 335, 380}         // from LDR b4 normalisation
 // #define WHI_VAL         {375, 335,380}          // 409,366,413
 // #define BLA_VAL         {318, 276, 313}         
@@ -87,9 +85,9 @@ void setup() {
   pinMode(RIGHTIR_PIN, INPUT);
   pinMode(SNDLOW_PIN, INPUT);
   pinMode(SNDHI_PIN, INPUT);
-  pinMode(LDR_PIN, mode);
-  pinMode(LED_PIN, mode);
-  pinMode(MUSIC_PIN, mode);
+  pinMode(LDR_PIN, INPUT);
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(MUSIC_PIN, OUTPUT);
   Serial.begin(9600);
 
   // calibrateWB();
@@ -144,7 +142,7 @@ void stopMove(const int i = 10) {
 }
 
 void moveForward() {
-  if (ultraSensor.distanceCm() < FRONT_BIAS) return;
+  if (ultraSensor.distanceCm() < D_FRONT) return;
   const int dx = getDist();
     
   // Normalise to MOTORSPEED
@@ -158,7 +156,7 @@ void moveForward() {
 
 void forwardGrid() {
   for (int i = 0; i < DELAYGRID; ++i) { 
-    if (ultraSensor.distanceCm() < FRONT_BIAS) break;
+    if (ultraSensor.distanceCm() < D_FRONT) break;
     leftWheel.run(-MOTORSPEED);
     rightWheel.run(MOTORSPEED);
     delay(TIMEDELAY);
@@ -247,8 +245,9 @@ int getColour() {
   }
   led.setColor(0,0,0); led.show();
 
-  // Find colour with min euclidean distance > MIN_DIST
-  int idx = -1, min_dist = MIN_DIST;
+  // Find colour with min euclidean distance > COL_DIST
+  int idx = -1;
+  int min_dist = COL_DIST;
   for (int i = 0; i < 6; ++i) {
     long long curr_dist = 0;
     for (int j = 0; j < 3; ++j)
@@ -292,7 +291,6 @@ void soundWaypoint(const int soundRes) {
 }
 
 void finishWaypoint() {
-  // stop moving, play sound
   // keys and durations found in NOTES.h
   for (int i = 0; i < sizeof(music_key) / sizeof(int); ++i) {
     // quarter note = 1000 / 4, eighth note = 1000/8, etc. (Assuming 1 beat per sec)
@@ -313,6 +311,7 @@ int norm(const int val, const int *low_mult) {
   int tmp = 1023LL * (val - *low_mult) / *(low_mult+1);
   if (tmp < 0) tmp = 1; // so we know it's not 0
   else if (tmp > 1023) tmp = 1023;
+  
   return tmp;
 }
 
