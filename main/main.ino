@@ -2,7 +2,6 @@
 #include <MeMCore.h>
 #include <MeRGBLed.h>
 #include "Notes.h"
-using ll = long long;
 
 /********** Settings **********/
 #define LEFTIR_PIN      A1
@@ -21,44 +20,41 @@ MeSoundSensor           lowSound(PORT_5);
 MeRGBLed                led(LED_PIN);
 MeBuzzer                buzzer;
 
-// General
-#define WAYPTDELAY      0                       // delay b4 decoding challenge
-#define TIMEDELAY       20                      // delay b4 recheck position
-
 // Movement
 #define MOTORSPEED      220
 #define TIMETURN        (61600/MOTORSPEED)      // time for 90deg turn
 #define TIMEGRID        (180000/MOTORSPEED)     // time to travel 1 grid
+#define TIMEDELAY       20                      // delay b4 recheck position
 #define DELAYGRID       (TIMEGRID / TIMEDELAY)
 #define K_ERR           0.5
 #define K_DIST          (255/2)                 // max correction to mvmt
 #define LEFT_BIAS       0                       // 128
 #define FRONT_BIAS      10                      // cm
-#define K_LEFTIR        200                     // threshold for IR sensor values
-#define K_RIGHTIR       200
+#define V_LEFTIR        200                     // threshold for IR sensor values
+#define V_RIGHTIR       200
 #define TIMEMUL         5                       // time multiplier for IR adjustment
 
 // Sound
-#define K_SNDLOW        40                      // 80
-#define K_SNDHI         20                      // 75
+#define V_SNDLOW        40                      // 80
+#define V_SNDHI         20                      // 75
 
 // Color
 // retrieved from colourcal.ino file after calibration
 #define MIN_DIST        5000                    // 10000
 #define WHI_VAL         {375, 335, 380}         // from LDR b4 normalisation
-//#define WHI_VAL         {375, 335,380}          409,366,413
-//#define BLA_VAL         {318, 276, 313}         // 
-//#define GRE_VAL         {102, 93, 109}          // {60,70,75}
+// #define WHI_VAL         {375, 335,380}          // 409,366,413
+// #define BLA_VAL         {318, 276, 313}         
+// #define GRE_VAL         {102, 93, 109}          // {60,70,75}
 #define BLA_VAL         {255, 217, 243}
 #define GRE_VAL         {116, 108, 130}
 
 #define RED_ARR         {185,35,35}             // normalised rgb vals
 #define GRE_ARR         {45, 100, 60}
-#define YEL_ARR         {255, 175, 100} //325,230,135
+#define YEL_ARR         {255, 175, 100}         //325,230,135
 #define PUR_ARR         {155,150,200}
 #define BLU_ARR         {175,240,240}
-//#define PUR_ARR         {115, 110, 175} //old values
-//#define BLU_ARR         {140, 200, 230} //old values
+// #define PUR_ARR         {115, 110, 175} //old values
+// #define BLU_ARR         {140, 200, 230} //old values
 #define BLA_ARR         {0,0,0}
 #define NUMCOL          6                       // black, red, green, yellow, purple, blue
 
@@ -78,9 +74,7 @@ MeBuzzer                buzzer;
 /********** Global Variables **********/
 bool busy = true;
 
-int IR_VALUES[2][2] = {{68,10},{81,19}}; // left-right, minmax
-ll error = 0;
-
+int irArray[2][2] = {{68,10},{81,19}}; // left-right, minmax
 int blackArray[] = BLA_VAL;
 int greyDiff[] = GRE_VAL;
 static int allColourArray[6][3] = {BLA_ARR,RED_ARR,GRE_ARR,YEL_ARR,PUR_ARR,BLU_ARR};
@@ -93,46 +87,28 @@ void setup() {
   pinMode(RIGHTIR_PIN, INPUT);
   pinMode(SNDLOW_PIN, INPUT);
   pinMode(SNDHI_PIN, INPUT);
+  pinMode(LDR_PIN, mode);
+  pinMode(LED_PIN, mode);
+  pinMode(MUSIC_PIN, mode);
   Serial.begin(9600);
 
-//   calibrateWB();
+  // calibrateWB();
   // calibrateIR();
-  // colorSensor.SensorInit();
   busy = false;
 }
 
-void stopMove(int i);
+void stopMove(const int i);
 void loop() {
-//  Serial.println(ultraSensor.distanceCm()); 
-//  delay(500);
-//  return;
-//  forwardGrid();
-//  return;
-//  int right=analogRead(RIGHTIR_PIN),left=analogRead(LEFTIR_PIN);;
-//  Serial.print("Right: "); Serial.print(right);
-//  Serial.print(" Left: "); Serial.println(left);
+  if (busy) return;
 
-//Serial.print("Low: "); Serial.print(analogRead(SNDLOW_PIN));
-//Serial.print("  High: "); Serial.println(analogRead(SNDHI_PIN));
-//
-//  delay(100);
-//  return;
-//  if (busy) return;
-
-  // double dist = ultraSensor.distanceCm();
-  // Serial.println(dist);
-// soundwa
-
-  // double frontDistance = ultraSensor.distanceCm();
   if (lineFinder.readSensors() != S1_IN_S2_IN) { // both sensors not in black line
-    moveForward(); // todo: front
+    moveForward();
     return;
   }
   
   // Waypoint detected!
   busy = true;
   stopMove(0);
-  delay(WAYPTDELAY);
 
   // Color Challenge
   int colourRes;
@@ -147,7 +123,7 @@ void loop() {
   }
 
   // Sound Challenge
-  int soundRes = getSound();
+  const int soundRes = getSound();
   if (soundRes > 0) {
     soundWaypoint(soundRes);
     busy = false;
@@ -161,7 +137,7 @@ void loop() {
 
 
 /********** Movement **********/
-void stopMove(int i = 10) {
+void stopMove(const int i = 10) {
   rightWheel.stop();
   leftWheel.stop();
   if (i) delay(TIMEDELAY * i);
@@ -169,27 +145,23 @@ void stopMove(int i = 10) {
 
 void moveForward() {
   if (ultraSensor.distanceCm() < FRONT_BIAS) return;
-  int dx = getDist();
+  const int dx = getDist();
     
   // Normalise to MOTORSPEED
   int maxx = MOTORSPEED + (dx >= 0 ? dx : -dx);
-  leftWheel.run((ll)(-MOTORSPEED + dx) * MOTORSPEED / maxx);
-  rightWheel.run((ll)(MOTORSPEED + dx) * MOTORSPEED / maxx);
+  leftWheel.run((long long)(-MOTORSPEED + dx) * MOTORSPEED / maxx);
+  rightWheel.run((long long)(MOTORSPEED + dx) * MOTORSPEED / maxx);
     
-  delay(TIMEDELAY*TIMEMUL);
+  delay(TIMEDELAY * TIMEMUL);
   stopMove(0);
-}
-
-void forward() {
-  leftWheel.run(-MOTORSPEED);
-  rightWheel.run(MOTORSPEED);
-  delay(TIMEDELAY);
 }
 
 void forwardGrid() {
   for (int i = 0; i < DELAYGRID; ++i) { 
     if (ultraSensor.distanceCm() < FRONT_BIAS) break;
-    forward();
+    leftWheel.run(-MOTORSPEED);
+    rightWheel.run(MOTORSPEED);
+    delay(TIMEDELAY);
   }
   stopMove();
 }
@@ -229,92 +201,43 @@ void uTurn() {
 
 /********** Sensors **********/
 int getDist() {
-//  
-//   // METHOD 1
-//   // Sweep left/right to find avail space
-//   if (ultraSensor.distanceCm() > FRONT_BIAS) return 0;
-//
-//   // Jiggle and see left/right better
-//   stopMove(0); busy = true;
-//   unsigned long time = millis() + TIMETURN / 4;
-//
-//   // Jiggle Right
-//   while (millis() < time || ultraSensor.distanceCm() < FRONT_BIAS) {
-//     leftWheel.run(-MOTORSPEED); rightWheel.run(MOTORSPEED);
-//   }
-//   stopMove(0);
-//   if (ultraSensor.distanceCm() > FRONT_BIAS) {
-//     busy = false; return 0;
-//   }
-//
-//   time = millis() + TIMETURN / 2;
-//   // Jiggle Right
-//   while (millis() < time || ultraSensor.distanceCm() < FRONT_BIAS) {
-//     leftWheel.run(MOTORSPEED); rightWheel.run(-MOTORSPEED);
-//   };
-//   stopMove(0); busy = false;
-//   return 0;
- 
-  // METHOD 2
   // Take raw value and threshold
-  int ir = analogRead(LEFTIR_PIN);
-  if (ir < K_LEFTIR) { // turn right
-    return (ir - K_LEFTIR) * K_DIST / 100;
-  }
-  else if (ir = analogRead(RIGHTIR_PIN), ir < K_RIGHTIR) { // turn left
-    return (K_RIGHTIR - ir) * K_DIST / 100;
-  }
+  int irVolt = analogRead(LEFTIR_PIN);
+  if (irVolt < V_LEFTIR) // turn right
+    return (irVolt - V_LEFTIR) * K_DIST / V_LEFTIR;
+
+  irVolt = analogRead(RIGHTIR_PIN);
+  if (irVolt < V_RIGHTIR) // turn left
+    return (V_RIGHTIR - irVolt) * K_DIST / V_RIGHTIR;
+  
   return 0;
-
-/*
-  // METHOD 3
-  // Calibrate, normalise and bias
-  int left = analogRead(LEFTIR_PIN), right = analogRead(RIGHTIR_PIN);
-  left = norm(left, IR_VALUES[0]) - LEFT_BIAS;
-  right = norm(right, IR_VALUES[1]);
-
-  // Only care if too close to either side
-  Serial.print("LEFT: "); Serial.print(left);
-  Serial.print("\tRIGHT: "); Serial.println(right);
-  if (left > 877) left = 2; // so we know it's not 1
-  if (right > 877) right = 2;
-
-  // TODO: Check front
-  // Ultrasonic
-
-  ll curr = (ll)(left - right) * K_DIST / 1023;
-  // return curr;
-  curr -= error;
-  error += curr;
-  return curr + error * K_ERR;
-  */
 }
 
 // Sound Sensor: Return first hz
 int getSound() {
   for (int i = 0; i < SOUND_NO; ++i) {
-    int low = analogRead(SNDLOW_PIN);
-    int hi = analogRead(SNDHI_PIN);
-    if (hi > K_SNDHI) return 2;
-    if (low > K_SNDLOW) return 1;
+    if (analogRead(SNDHI_PIN) > V_SNDHI) return 2;
+    if (analogRead(SNDLOW_PIN) > V_SNDLOW) return 1;
     delay(MIC_WAIT);
   }
   return 0;
 }
 
 // Color Sensor: Return nearest colour
-ll square(ll x) { return x * x; }
-int getColour() { // returns index of best color
+long long square(const long long x) { return x * x; }
+int getColour() {
+  // Read colours
   float colourArray[3] = {0};
-  for (int i = 0; i < 3; ++i) {
+  for (int i = 0; i < 3; ++i) { // red, green, blue
     led.setColor( // one-hot encoding
       ((1<<i)   &1) * LED_MAX,
       ((1<<i>>1)&1) * LED_MAX,
       ((1<<i>>2)&1) * LED_MAX
-    ); led.show();
+    );
+    led.show();
     delay(RGB_WAIT);
 
-    for (int j = 0; j < COLOUR_NO; ++j) {
+    for (int j = 0; j < COLOUR_NO; ++j) { // take avg reading
       colourArray[i] += analogRead(LDR_PIN);
       delay(LDR_WAIT);
     }
@@ -324,65 +247,32 @@ int getColour() { // returns index of best color
   }
   led.setColor(0,0,0); led.show();
 
+  // Find colour with min euclidean distance > MIN_DIST
   int idx = -1, min_dist = MIN_DIST;
   for (int i = 0; i < 6; ++i) {
     long long curr_dist = 0;
-    for (int j = 0; j < 3; ++j) {
+    for (int j = 0; j < 3; ++j)
       curr_dist += square(allColourArray[i][j] - colourArray[j]);
-    }
-//    Serial.print(i); Serial.print(curr_dist); Serial.print(", ");
+
     if (min_dist > curr_dist && curr_dist > 0) {
-      idx = i; min_dist = curr_dist;
+      idx = i;
+      min_dist = curr_dist;
     }
   }
-  Serial.println();
 
+  // Returns index of best color
   return idx;
 }
-
-// void getColours(uint16_t colorvalues[]) {
-//   colorvalues[0] = colorSensor.Returnresult();
-//   colorvalues[1] = colorSensor.ReturnRedData();
-//   colorvalues[2] = colorSensor.ReturnGreenData();
-//   colorvalues[3] = colorSensor.ReturnBlueData();
-//   colorvalues[4] = colorSensor.ReturnColorData();
-// }
-
-// void colorPrint() {
-//   uint16_t colorvalues[5];
-//   getColours(colorvalues);
-//   long colorcode = colorSensor.ReturnColorCode();//RGB24code
-//   uint8_t grayscale = colorSensor.ReturnGrayscale();
-
-//   Serial.print("R:"); Serial.print(colorvalues[1]); Serial.print("\t");
-//   Serial.print("G:"); Serial.print(colorvalues[2]); Serial.print("\t");
-//   Serial.print("B:"); Serial.print(colorvalues[3]); Serial.print("\t");
-//   Serial.print("C:"); Serial.print(colorvalues[4]); Serial.print("\t");
-//   Serial.print("color:");
-//   switch (colorvalues[0])
-//   {
-//     case BLACK: Serial.print("BLACK"); break;
-//     case BLUE: Serial.print("BLUE"); break;
-//     case YELLOW: Serial.print("YELLOW"); break;
-//     case GREEN: Serial.print("GREEN"); break;
-//     case RED: Serial.print("RED"); break;
-//     case WHITE: Serial.print("WHITE"); break;
-//   }
-//   Serial.print("\t");
-//   Serial.print("code:"); Serial.print(colorcode, HEX); Serial.print("\t");
-//   Serial.print("grayscale:"); Serial.println(grayscale);
-// }
 
 
 
 /********** Waypoints **********/
-void colorWaypoint(int colourRes) {
+void colorWaypoint(const int colourRes) {
   // red : left
   // green : right
   // yellow : 180deg within grid
   // purple : 2 left
   // light blue : 2 right
-//  {BLA_ARR,RED_ARR,GRE_ARR,YEL_ARR,PUR_ARR,BLU_ARR}
   switch (colourRes) {
     case 1: turnLeft(); break;
     case 2: turnRight(); break;
@@ -392,7 +282,7 @@ void colorWaypoint(int colourRes) {
   }
 }
 
-void soundWaypoint(int soundRes) {
+void soundWaypoint(const int soundRes) {
   // 1  low (100-300) : left
   // 2  right (>3000) : right
   switch (soundRes) {
@@ -403,9 +293,10 @@ void soundWaypoint(int soundRes) {
 
 void finishWaypoint() {
   // stop moving, play sound
+  // keys and durations found in NOTES.h
   for (int i = 0; i < sizeof(music_key) / sizeof(int); ++i) {
     // quarter note = 1000 / 4, eighth note = 1000/8, etc. (Assuming 1 beat per sec)
-    int duration = 1000 / music_duration[i];
+    const int duration = 1000 / music_duration[i];
     buzzer.tone(MUSIC_PIN, music_key[i], duration);
 
     // to distinguish notes
@@ -417,9 +308,10 @@ void finishWaypoint() {
 
 
 /********** Calibration **********/
+// Used only for testing purposes, not for actual run.
 int norm(const int val, const int *low_mult) {
-  int tmp = 1023LL * (val - *low_mult) / *(low_mult+1); // int will overflow
-  if (tmp < 0) tmp = 1;
+  int tmp = 1023LL * (val - *low_mult) / *(low_mult+1);
+  if (tmp < 0) tmp = 1; // so we know it's not 0
   else if (tmp > 1023) tmp = 1023;
   return tmp;
 }
@@ -432,14 +324,14 @@ void calibrateIR() {
   for (int i = CALLIBRATE_SEC; i > 0; --i) {
     Serial.print(i); Serial.print(".. "); delay(1000);
   }
-  IR_VALUES[0][0] = IR_VALUES[1][0] = 0;
+  irArray[0][0] = irArray[1][0] = 0;
   for (int i = 0; i < SOUND_NO; ++i) {
-    IR_VALUES[0][0] += analogRead(LEFTIR_PIN);
-    IR_VALUES[1][0] += analogRead(RIGHTIR_PIN);
+    irArray[0][0] += analogRead(LEFTIR_PIN);
+    irArray[1][0] += analogRead(RIGHTIR_PIN);
     delay(IR_WAIT);
   }
-  IR_VALUES[0][0] /= SOUND_NO;
-  IR_VALUES[1][0] /= SOUND_NO;
+  irArray[0][0] /= SOUND_NO;
+  irArray[1][0] /= SOUND_NO;
   Serial.println("done.");
 
   // Max values
@@ -447,30 +339,30 @@ void calibrateIR() {
   for (int i = CALLIBRATE_SEC; i > 0; --i) {
     Serial.print(i); Serial.print(".. "); delay(1000);
   }
-  IR_VALUES[0][1] = IR_VALUES[1][1] = 0;
+  irArray[0][1] = irArray[1][1] = 0;
   for (int i = 0; i < SOUND_NO; ++i) {
-    IR_VALUES[0][1] += analogRead(LEFTIR_PIN);
-    IR_VALUES[1][1] += analogRead(RIGHTIR_PIN);
+    irArray[0][1] += analogRead(LEFTIR_PIN);
+    irArray[1][1] += analogRead(RIGHTIR_PIN);
     delay(IR_WAIT);
   }
-  IR_VALUES[0][1] /= SOUND_NO;
-  IR_VALUES[1][1] /= SOUND_NO;
+  irArray[0][1] /= SOUND_NO;
+  irArray[1][1] /= SOUND_NO;
   Serial.println("done.\n");
 
   // Save range
-  // Serial.println(IR_VALUES[0][0]);
-  // Serial.println(IR_VALUES[0][1]);
-  // Serial.println(IR_VALUES[1][0]);
-  // Serial.println(IR_VALUES[1][1]);
-  IR_VALUES[0][1] -= IR_VALUES[0][0]; // left range
-  IR_VALUES[1][1] -= IR_VALUES[1][0]; // right range
+  // Serial.println(irArray[0][0]);
+  // Serial.println(irArray[0][1]);
+  // Serial.println(irArray[1][0]);
+  // Serial.println(irArray[1][1]);
+  irArray[0][1] -= irArray[0][0]; // left range
+  irArray[1][1] -= irArray[1][0]; // right range
 
   // Output calibrated
-  Serial.print("int IR_VALUES[2][2] = {{");
-  Serial.print(IR_VALUES[0][0]); Serial.print(",");
-  Serial.print(IR_VALUES[0][1]); Serial.print("},{");
-  Serial.print(IR_VALUES[1][0]); Serial.print(",");
-  Serial.print(IR_VALUES[1][1]); Serial.println("}};");
+  Serial.print("int irArray[2][2] = {{");
+  Serial.print(irArray[0][0]); Serial.print(",");
+  Serial.print(irArray[0][1]); Serial.print("},{");
+  Serial.print(irArray[1][0]); Serial.print(",");
+  Serial.print(irArray[1][1]); Serial.println("}};");
 }
 
 void calibrateWB() {

@@ -4,7 +4,6 @@
 #define Notes_h
 
 /* NOTES FOR CELEBRATORY TUNE */
-//notes
 #define NOTE_B0  31
 #define NOTE_C1  33
 #define NOTE_CS1 35
@@ -148,7 +147,7 @@ static int music_duration[] = {
     12, 12, 12, 12,
 };
 
-void printColour(int colourRes) {
+void printColour(const int colourRes) {
   String s;
   switch (colourRes){
     case 0: s="black"; break;
