@@ -1,5 +1,9 @@
 # mBot
-CG1111
+CG1111 2019/20 Semester 1
+
+## Get Started
+1. Build mBot according to `Group4_Section3_TeamB.pdf`
+2. Compile and Upload `main/main.imo` to mBot
 
 ## Feature List
 General Movement
@@ -7,7 +11,6 @@ General Movement
 - [x] Built-in Ultrasonic Sensor (wk 10-1) – detect wall in front
 - [x] Programming – forward movement and readjustment
 - [x] Programming - IR Callibration
-- [ ] Programming - concurrent functions with millis()
 
 Waypoint Challenges
 - [x] Built-in IR sensor - detect waypoint / black line
@@ -17,8 +20,6 @@ Waypoint Challenges
 
 Finish
 - [x] Speaker (makeblock) – play celebratory tune
-=======
-Overall Algorithm:
 
 ## Algorithm
 * Loop: Check for waypoint
