@@ -13,10 +13,8 @@
 #define MUSIC_PIN       8
 MeDCMotor               leftWheel(M1);          // -255 to 255
 MeDCMotor               rightWheel(M2);         // 255 to -255, ie reversed
-MeLineFollower          lineFinder(PORT_2);     // PORT_3
-MeUltrasonicSensor      ultraSensor(PORT_1);    // PORT_7
-MeSoundSensor           highSound(PORT_6);
-MeSoundSensor           lowSound(PORT_5);
+MeLineFollower          lineFinder(PORT_2);     
+MeUltrasonicSensor      ultraSensor(PORT_1);    
 MeRGBLed                led(LED_PIN);
 MeBuzzer                buzzer;
 
@@ -40,9 +38,6 @@ MeBuzzer                buzzer;
 // retrieved from colourcal.ino file after calibration
 #define COL_DIST        5000                    // 10000
 #define WHI_VAL         {375, 335, 380}         // from LDR b4 normalisation
-// #define WHI_VAL         {375, 335,380}          // 409,366,413
-// #define BLA_VAL         {318, 276, 313}         
-// #define GRE_VAL         {102, 93, 109}          // {60,70,75}
 #define BLA_VAL         {255, 217, 243}
 #define GRE_VAL         {116, 108, 130}
 
@@ -51,8 +46,6 @@ MeBuzzer                buzzer;
 #define YEL_ARR         {255, 175, 100}         //325,230,135
 #define PUR_ARR         {155,150,200}
 #define BLU_ARR         {175,240,240}
-// #define PUR_ARR         {115, 110, 175} //old values
-// #define BLU_ARR         {140, 200, 230} //old values
 #define BLA_ARR         {0,0,0}
 #define NUMCOL          6                       // black, red, green, yellow, purple, blue
 
