@@ -2,7 +2,7 @@
 CG1111 2019/20 Semester 1
 
 ## Get Started
-1. Build mBot according to `Group4_Section3_TeamB.pdf`
+1. Build mBot according to `mBot Report.pdf`
 2. Compile and Upload `main/main.imo` to mBot
 
 ## Feature List
