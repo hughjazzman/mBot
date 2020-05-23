@@ -33,3 +33,13 @@ Finish
 			* Yes: Turn left
 			* No: Turn right
 		* No: move forward
+		
+## Acknowledgements
+**Professor** - Ravi S/O Suppiah
+
+**Team Members** -  
+[Walter Kong](https://github.com/k-walter)  
+Wira Azmoon Ahmad  
+Wang Shuyi  
+Wang Zihao  
+Brendan Wan  
